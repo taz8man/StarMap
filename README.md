@@ -1,290 +1,170 @@
-# Local Galactic Neighborhood — Raspberry Pi Installation Guide
+# Local Galactic Neighborhood — Star Map
 
-**Version:** 1.0  
+**Version:** 0.9.6  
 **Tested on:** Raspberry Pi OS Bookworm (64-bit), Bullseye (32 & 64-bit)  
-**Hardware:** Raspberry Pi 3B+, 4, 5 (all work; Pi 5 recommended for smooth WebGL)
+**Hardware:** Raspberry Pi 3B+, 4, 5 · Pi 4 or 5 recommended for smooth WebGL
 
 ---
 
-## What You're Installing
+## What This Is
 
-An interactive 3D star map rendered in WebGL (Three.js) showing every catalogued star within 120 light years of Sol, using real coordinates from the HYG stellar database (Hipparcos + Yale + Gliese catalogs). nginx serves it as a local website accessible from any browser on your network.
+An interactive 3D star map rendered in WebGL (Three.js) showing every catalogued star within 120 light years of Sol in true galactic coordinates, served as a local website from a Raspberry Pi. Layered on top of real astronomical data is a full **worldbuilding system** — a creative tool for science fiction writers, game masters, and world-builders to annotate stars, create fictional planets, define civilizations, factions, and eras, and view planetary systems in a dedicated 3D orbital viewer.
 
 ---
 
-## Files in This Package
+## Package Contents
 
 ```
 starmap/
-├── index.html          ← The star map application (self-contained)
-├── nginx.conf          ← Web server configuration
-├── install.sh          ← Main installer (run this first)
-├── kiosk-setup.sh      ← Optional: auto-launch full-screen on boot
-├── update.sh           ← Replace the app after edits
-└── uninstall.sh        ← Remove everything cleanly
+├── index.html                  ← Galactic neighborhood map (main app)
+├── exoplanet-system.html       ← Planetary system 3D viewer
+├── solar-system.html           ← Solar system viewer
+├── nginx.conf                  ← Web server configuration
+├── install.sh                  ← Full installer (7 steps)
+├── uninstall.sh                ← Clean uninstaller
+├── update.sh                   ← Deploy HTML updates to Pi
+├── update-data.sh              ← Run all catalog updates (called by cron)
+├── update-catalog.sh           ← Update HYG star catalog only
+├── update-exoplanets.sh        ← Update NASA exoplanet catalog only
+├── kiosk-setup.sh              ← Optional full-screen kiosk mode
+├── api/
+│   ├── world_api.py            ← Flask worldbuilding REST API
+│   ├── init_db.py              ← SQLite schema + migrations
+│   └── install-api.sh          ← API service installer
+└── static/
+    ├── css/
+    │   └── worldbuilding.css   ← Shared WB panel styles
+    └── js/
+        ├── worldbuilding.js    ← Shared WB panel logic
+        └── worldbuilding-panel.js ← WB panel HTML injection
 ```
 
 ---
 
-## Prerequisites
+## Quick Install
 
-### Hardware
-- Raspberry Pi 3B+, 4, or 5
-- MicroSD card (8GB+ recommended)
-- Network connection (Ethernet or Wi-Fi) — needed during install to download Three.js and fonts
+```bash
+scp starmap-raspberrypi.tar.gz pi@<PI_IP>:~/
+ssh pi@<PI_IP>
+tar -xzf starmap-raspberrypi.tar.gz
+sudo bash starmap/install.sh
+```
 
-### Software
-- Raspberry Pi OS (Bookworm or Bullseye, Desktop or Lite)
-- Fresh install recommended (though not required)
+The installer runs 7 steps automatically:
+1. Install nginx
+2. Download Three.js r128
+3. Download web fonts (Orbitron, Space Mono)
+4. Download HYG star catalog (~14 MB)
+5. Download NASA exoplanet catalog
+6. Install app files and configure nginx
+7. Install worldbuilding API (Flask + SQLite + systemd)
+
+After install, open a browser to `http://<PI_IP>/` or `http://<hostname>.local/`
 
 ---
 
-## Step-by-Step Installation
+## Updating
 
-### 1. Copy the package to your Pi
-
-**Option A — USB drive:**
+**HTML and static files:**
 ```bash
-# Insert USB drive, then on the Pi:
-cp -r /media/pi/YOUR_DRIVE/starmap ~/starmap
-cd ~/starmap
+scp starmap-raspberrypi.tar.gz pi@<PI_IP>:~/
+ssh pi@<PI_IP> "
+  cd ~ && tar -xzf starmap-raspberrypi.tar.gz
+  sudo bash starmap/update.sh
+  sudo cp starmap/static/css/worldbuilding.css /var/www/starmap/static/css/
+  sudo cp starmap/static/js/worldbuilding.js /var/www/starmap/static/js/
+  sudo cp starmap/static/js/worldbuilding-panel.js /var/www/starmap/static/js/
+"
 ```
 
-**Option B — scp from your computer (replace PI_IP):**
+**API updates:**
 ```bash
-scp -r ./starmap/ pi@PI_IP:~/starmap
-ssh pi@PI_IP
-cd ~/starmap
-```
-
-**Option C — Direct download (if you prefer):**
-```bash
-# On the Pi, create the folder and copy files manually from a USB or share
-mkdir ~/starmap
-```
-
-### 2. Make scripts executable
-```bash
-chmod +x ~/starmap/install.sh
-chmod +x ~/starmap/kiosk-setup.sh
-chmod +x ~/starmap/uninstall.sh
-chmod +x ~/starmap/update.sh
-```
-
-### 3. Run the installer
-```bash
-cd ~/starmap
-sudo bash install.sh
-```
-
-The installer will:
-- Update your package list
-- Install nginx (the web server)
-- Download Three.js r128 (~600 KB) from cdnjs.cloudflare.com
-- Download web fonts (Orbitron + Space Mono) from Google Fonts
-- Copy all files to `/var/www/starmap/`
-- Configure and start nginx
-
-**Typical install time:** 2–5 minutes on Pi 4 with decent internet.
-
-### 4. Open the star map
-
-From the Pi's own browser:
-```
-http://localhost/
-```
-
-From any device on the same network:
-```
-http://RASPBERRY_PI_IP/
-```
-
-To find your Pi's IP address:
-```bash
-hostname -I
-```
-
-Or try the hostname shortcut (works on most local networks):
-```
-http://raspberrypi.local/
+sudo cp starmap/api/world_api.py /var/www/starmap/api/world_api.py
+sudo systemctl restart starmap-api
 ```
 
 ---
 
-## Optional: Kiosk Mode (Full-Screen on Boot)
+## Nightly Updates
 
-If you want the Pi to boot directly into the star map full-screen (great for a dedicated display):
+Catalog data updates automatically at **2:00 AM** via cron:
 
 ```bash
-sudo bash ~/starmap/kiosk-setup.sh
-sudo reboot
-```
-
-After rebooting, the Pi will automatically open Chromium in full-screen kiosk mode pointing to the star map. The mouse cursor will hide after 5 seconds of inactivity.
-
-**To exit kiosk mode:** Press `Alt+F4` or `Ctrl+W`  
-**To disable kiosk permanently:**
-```bash
-rm ~/.config/autostart/starmap-kiosk.desktop
+cat /etc/cron.d/starmap-update        # verify cron is installed
+sudo bash /var/www/starmap/update-data.sh   # run manually
+cat /var/log/starmap/update-data.log  # view log
 ```
 
 ---
 
-## Enabling the Live Star Catalog (Optional)
+## Architecture
 
-The app ships with 133 well-known stars embedded. When served from a real web server with internet access, it will automatically attempt to download the full HYG v3.8 catalog (~3,000+ stars within 120 ly) from Codeberg in the background.
+| Component | Technology | Location |
+|---|---|---|
+| Web server | nginx | `/etc/nginx/sites-available/starmap` |
+| Star map | Three.js r128 (WebGL) | `/var/www/starmap/index.html` |
+| Worldbuilding API | Flask (Python) | `/var/www/starmap/api/world_api.py` |
+| Database | SQLite | `/var/www/starmap/data/world.db` |
+| Star catalog | HYG / AT-HYG v3.2 | `/var/www/starmap/static/data/hyg.csv` |
+| Exoplanet catalog | NASA Exoplanet Archive | `/var/www/starmap/static/data/exoplanets.csv` |
+| Shared WB styles | CSS | `/var/www/starmap/static/css/worldbuilding.css` |
+| Shared WB logic | JavaScript | `/var/www/starmap/static/js/worldbuilding.js` |
 
-If the Pi has internet access, this happens automatically — you'll see the star count increase after a few seconds and the status bar will update to show "HYG v3.8 LIVE".
-
-No configuration needed.
+**API base URL:** `http://<PI_IP>/api/world/`
 
 ---
 
 ## Useful Commands
 
-### Check if the server is running
 ```bash
 sudo systemctl status nginx
+sudo systemctl status starmap-api
+sudo journalctl -u starmap-api -f
+sudo systemctl restart starmap-api
+curl http://localhost/api/world/backup > world_backup.json
 ```
-
-### Restart the server
-```bash
-sudo systemctl restart nginx
-```
-
-### Watch live access logs
-```bash
-sudo tail -f /var/log/nginx/starmap_access.log
-```
-
-### Update the star map (after editing index.html)
-```bash
-cd ~/starmap
-sudo bash update.sh
-```
-
-### Check what's installed
-```bash
-ls -lh /var/www/starmap/
-ls -lh /var/www/starmap/static/js/
-ls -lh /var/www/starmap/static/fonts/
-```
-
----
-
-## Uninstalling
-
-```bash
-sudo bash ~/starmap/uninstall.sh
-```
-
-This removes:
-- `/var/www/starmap/` (all app files)
-- The nginx site configuration
-- Restores nginx to its default state
-
-nginx itself is NOT removed (it may be used by other services).
-
----
-
-## Performance Notes
-
-| Pi Model | Expected FPS | Notes |
-|----------|-------------|-------|
-| Pi 3B+   | 20–40 fps   | Smooth for the 133-star embedded set; may slow on 3000+ stars |
-| Pi 4     | 50–60 fps   | Excellent for full catalog |
-| Pi 5     | 60 fps      | Best experience |
-
-**If performance is poor on Pi 3B+:**
-- Use the embedded catalog (default, no internet needed)
-- Keep the "Max Distance" slider below 60 ly
-- Disable "Star Glow" in the Filters panel
 
 ---
 
 ## Troubleshooting
 
-### "Site can't be reached" from another device
+**Only 133 stars visible**  
 ```bash
-# Check nginx is running
-sudo systemctl status nginx
-
-# Check firewall (Pi OS usually has none, but just in case)
-sudo ufw status
-
-# Get the Pi's actual IP
-hostname -I
+sudo bash /var/www/starmap/update-catalog.sh
 ```
 
-### Star map shows but Three.js fails to load
+**No planet rings on stars**  
 ```bash
-# Verify Three.js was downloaded
-ls -lh /var/www/starmap/static/js/three.min.js
-
-# If missing, download manually:
-sudo curl -fsSL https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js \
-     -o /var/www/starmap/static/js/three.min.js
-sudo chown www-data:www-data /var/www/starmap/static/js/three.min.js
+sudo bash /var/www/starmap/update-exoplanets.sh
 ```
 
-### Fonts look wrong (falling back to monospace)
-Fonts are cosmetic only — the app works fine without them. To download manually:
+**Worldbuilding panel shows "API not reachable"**  
 ```bash
-# Orbitron Regular
-sudo curl -fsSL "https://fonts.gstatic.com/s/orbitron/v31/yMJMMIlzdpvBhQQL_SC3X9yhF25-T1nysimBoWgz.woff2" \
-     -o /var/www/starmap/static/fonts/Orbitron-Regular.woff2
+sudo systemctl restart starmap-api
+sudo journalctl -u starmap-api -n 30
 ```
 
-### nginx config test fails
+**API missing after reinstall**  
 ```bash
-sudo nginx -t
-# Fix any errors shown, then:
-sudo systemctl restart nginx
-```
-
-### Check nginx error logs
-```bash
-sudo tail -50 /var/log/nginx/starmap_error.log
+sudo bash ~/starmap/api/install-api.sh
 ```
 
 ---
 
-## Network Access Options
+## Version History
 
-### Access from local network (default)
-Works immediately after install. Use `http://PI_IP/` from any device on the same Wi-Fi or Ethernet network.
-
-### Make accessible from internet (advanced)
-Not recommended for most users. Requires:
-1. Port forwarding on your router (port 80 → Pi's IP)
-2. A domain name or dynamic DNS service
-3. An SSL certificate (Let's Encrypt / Certbot)
-
-For a local home display, the default local-only setup is ideal.
-
-### Static IP for the Pi (recommended for permanent installs)
-Assign a fixed IP to the Pi from your router's DHCP settings, or set a static IP on the Pi:
-```bash
-# Find your current network settings
-ip route show default
-# Then edit /etc/dhcpcd.conf to set a static IP — see your Pi OS docs
-```
-
----
-
-## File Locations Summary
-
-| Item | Location |
-|------|----------|
-| Star map HTML | `/var/www/starmap/index.html` |
-| Three.js library | `/var/www/starmap/static/js/three.min.js` |
-| Web fonts | `/var/www/starmap/static/fonts/` |
-| nginx site config | `/etc/nginx/sites-available/starmap` |
-| nginx access log | `/var/log/nginx/starmap_access.log` |
-| nginx error log | `/var/log/nginx/starmap_error.log` |
-
----
-
-*Star data: HYG Database v3.8 — Hipparcos, Yale Bright Star, Gliese catalogs*  
-*Rendering: Three.js r128 — WebGL 3D engine*  
-*Coordinates: IAU J2000 galactic frame (X=toward galactic center, Y=north pole, Z=east)*
+| Version | Description |
+|---|---|
+| 0.9.6 | Moon viewer (planet-system.html), WB moon tab, moon API endpoints, solar/exo viewer moon links |
+| 0.9.5 | Habitable zone in exo viewer, bolometric corrections, star DP redesign |
+| 0.9.4 | Shared CSS/JS, full WB panel in exo viewer, bug fixes |
+| 0.9.3 | Radius/mass fields, auto size class from radius |
+| 0.9.2 | Blue/green planet rings, with_planets API endpoint |
+| 0.9.1 | View Planetary System button for user-planet stars |
+| 0.9.0 | User planets in exo viewer, allplanets API endpoint |
+| 0.8.6 | NASA planet catalog in WB panel, Import/Import All |
+| 0.8.5 | Orbital fields (period, eccentricity, inclination, arg_peri) |
+| 0.8.4 | Nightly cron updates, exoplanet download in installer |
+| 0.8.3 | Search bar to bottom, version in status bar |
+| 0.8.2 | Hamburger menu, panel layout fixes |
+| 0.8.1 | HYG catalog auto-fill in WB star tab |

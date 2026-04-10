@@ -144,7 +144,29 @@ CREATE INDEX IF NOT EXISTS idx_wb_stars_hd  ON wb_stars(hd);
 CREATE INDEX IF NOT EXISTS idx_sec_star  ON star_era_control(star_id);
 CREATE INDEX IF NOT EXISTS idx_sec_era   ON star_era_control(era_id);
 CREATE INDEX IF NOT EXISTS idx_sec_fac   ON star_era_control(faction_id);
+CREATE TABLE IF NOT EXISTS wb_moons (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    planet_id       INTEGER NOT NULL REFERENCES wb_planets(id) ON DELETE CASCADE,
+    nasa_moon_name  TEXT,
+    fictional_name  TEXT DEFAULT '',
+    common_name     TEXT DEFAULT '',
+    orbit_radii     REAL,
+    period_days     REAL,
+    eccentricity    REAL DEFAULT 0,
+    inclination     REAL DEFAULT 0,
+    radius_km       REAL,
+    mass_desc       TEXT DEFAULT '',
+    world_type      TEXT DEFAULT 'Rocky',
+    atmosphere      TEXT DEFAULT 'None',
+    significance    TEXT DEFAULT 'NONE',
+    plot_notes      TEXT DEFAULT '',
+    internal_notes  TEXT DEFAULT '',
+    created_at      TEXT DEFAULT (datetime('now')),
+    updated_at      TEXT DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_wbp_star  ON wb_planets(star_id);
+CREATE INDEX IF NOT EXISTS idx_wbm_planet ON wb_moons(planet_id);
 CREATE INDEX IF NOT EXISTS idx_pes_planet ON planet_era_state(planet_id);
 CREATE INDEX IF NOT EXISTS idx_tl ON tag_links(entity_type, entity_id);
 """)
@@ -165,4 +187,33 @@ try:
     db.commit()
 except Exception:
     pass  # columns already exist
+
+# Add wb_moons table if it doesn't exist (safe migration)
+try:
+    db2 = sqlite3.connect(DB_PATH)
+    db2.execute('''CREATE TABLE IF NOT EXISTS wb_moons (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        planet_id       INTEGER NOT NULL REFERENCES wb_planets(id) ON DELETE CASCADE,
+        nasa_moon_name  TEXT,
+        fictional_name  TEXT DEFAULT '',
+        common_name     TEXT DEFAULT '',
+        orbit_radii     REAL,
+        period_days     REAL,
+        eccentricity    REAL DEFAULT 0,
+        inclination     REAL DEFAULT 0,
+        radius_km       REAL,
+        mass_desc       TEXT DEFAULT '',
+        world_type      TEXT DEFAULT 'Rocky',
+        atmosphere      TEXT DEFAULT 'None',
+        significance    TEXT DEFAULT 'NONE',
+        plot_notes      TEXT DEFAULT '',
+        internal_notes  TEXT DEFAULT '',
+        created_at      TEXT DEFAULT (datetime('now')),
+        updated_at      TEXT DEFAULT (datetime('now'))
+    )''')
+    db2.execute("CREATE INDEX IF NOT EXISTS idx_wbm_planet ON wb_moons(planet_id)")
+    db2.commit()
+    db2.close()
+except Exception:
+    pass  # table already exists
 print(f"Database initialised at {DB_PATH}")

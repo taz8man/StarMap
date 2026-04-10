@@ -68,15 +68,40 @@ canvas{display:block;position:absolute;inset:0;width:100%!important;height:100%!
 <div class="pn" id="dp">
   <button id="cs">✕</button>
   <h4 id="dn">—</h4>
-  <div class="dr"><span class="lb">Type      </span><span id="dtype"></span></div>
-  <div class="dr"><span class="lb">Orbit     </span><span id="dorb"></span></div>
-  <div class="dr"><span class="lb">Period    </span><span id="dper"></span></div>
-  <div class="dr"><span class="lb">Radius    </span><span id="drad"></span></div>
-  <div class="dr"><span class="lb">Mass      </span><span id="dmas"></span></div>
-  <div class="dr"><span class="lb">Eq. Temp  </span><span id="deqt"></span></div>
-  <div class="dr"><span class="lb">Discovery </span><span id="ddis"></span></div>
-  <div id="dr-wiki" style="display:none">
+
+  <!-- ── Star rows ─────────────────────────────────────────────── -->
+  <div id="dp-star-rows">
+    <div class="dr"><span class="lb">Distance  </span><span id="dd"></span></div>
+    <div class="dr"><span class="lb">Spectral  </span><span id="dsp"></span></div>
+    <div class="dr"><span class="lb">App Mag   </span><span id="dm2"></span></div>
+    <div class="dr"><span class="lb">Abs Mag   </span><span id="da"></span></div>
+    <div class="dr"><span class="lb">Luminosity</span><span id="dlum"></span></div>
+    <div class="dr"><span class="lb">Hab Zone  </span><span id="dhz"></span></div>
+    <div class="dr"><span class="lb">Planets   </span><span id="dplc"></span></div>
+  </div>
+
+  <!-- ── Planet rows ───────────────────────────────────────────── -->
+  <div id="dp-planet-rows">
+    <div class="dr"><span class="lb">Type      </span><span id="dtype"></span></div>
+    <div class="dr"><span class="lb">Orbit     </span><span id="dorb"></span></div>
+    <div class="dr"><span class="lb">Period    </span><span id="dper"></span></div>
+    <div class="dr"><span class="lb">Radius    </span><span id="drad"></span></div>
+    <div class="dr"><span class="lb">Mass      </span><span id="dmas"></span></div>
+    <div class="dr"><span class="lb">Eq. Temp  </span><span id="deqt"></span></div>
+    <div class="dr"><span class="lb">Discovery </span><span id="ddis"></span></div>
+  </div>
+
+  <div id="dr-wiki" style="display:none;margin-top:4px">
     <a id="dwiki" href="#" target="_blank" rel="noopener">⬡ Wikipedia</a>
+  </div>
+  <div id="dr-moons" style="display:none;margin-top:4px">
+    <button id="btn-moons"
+      style="font-family:'Space Mono',monospace;font-size:var(--fs-md);
+             background:rgba(0,80,180,.25);color:#88aaff;
+             border:1px solid rgba(68,153,255,.45);border-radius:3px;
+             padding:4px 10px;cursor:pointer;width:100%;letter-spacing:.05em">
+      ⬡ View Moon System
+    </button>
   </div>
   <div id="dr-wb" style="display:none;margin-top:6px">
     <button id="btn-wb"
@@ -133,7 +158,29 @@ const TARGET_HOST = (params.get('host')||'').trim();
 const TARGET_HIP  = (params.get('hip') ||'').trim();
 const TARGET_HD   = (params.get('hd')  ||'').trim();
 const TARGET_DIST = parseFloat(params.get('dist')||'0');
-const TARGET_SPECT= (params.get('spect')||'').trim();
+const TARGET_SPECT  = (params.get('spect')||'').trim();
+const TARGET_ABSMAG = parseFloat(params.get('absmag')||'NaN');
+
+// Bolometric correction by spectral type
+function bcForSpect(spect){
+  const s=(spect||'').trim().toUpperCase();
+  if(s.startsWith('O')) return -4.0;
+  if(s.startsWith('B')) return -2.0;
+  if(s.startsWith('A')) return -0.3;
+  if(s.startsWith('F')) return -0.1;
+  if(s.startsWith('G')) return -0.1;
+  if(s.startsWith('K')) return -0.4;
+  if(s.startsWith('M')){
+    const sub=s.length>1&&s[1]>='0'&&s[1]<='9'?parseFloat(s[1]):2.0;
+    return -(1.0+sub*0.25);
+  }
+  if(s.startsWith('D')) return -0.5;
+  return -0.1;
+}
+// Bolometric luminosity from visual absmag + spectral correction
+const TARGET_LUM = isFinite(TARGET_ABSMAG)
+  ? Math.pow(10,(4.83-(TARGET_ABSMAG+bcForSpect(TARGET_SPECT)))/2.5)
+  : 0;
 
 // Map spectral type to star color
 function spectToColor(spect){
@@ -355,6 +402,7 @@ async function loadSystem(){
                 if(up.arg_peri)       ex.argp=up.arg_peri;
                 if(up.radius_earth)   ex.r_e=up.radius_earth;
                 if(up.mass_earth)     ex.m_e=up.mass_earth;
+                ex.wb_id = up.id;  // needed for moon viewer link
               }
               continue;
             }
@@ -368,6 +416,7 @@ async function loadSystem(){
                 inc:up.inclination||0,argp:up.arg_peri||0,
                 r_e:up.radius_earth||0, m_e:up.mass_earth||0, eqt:0,
                 dm:'User Created',dy:'',dist:0,source:'user',
+                wb_id: up.id,  // needed for moon viewer link
               });
             }
           }
@@ -454,6 +503,37 @@ function buildScene(planets){
   disc.rotation.x=Math.PI/2;
   scene.add(disc);
 
+  // ── Habitable zone ring ─────────────────────────────────────────────────────
+  // Kopparapu (2013) conservative edges: inner=sqrt(L/1.1), outer=sqrt(L/0.53)
+  if(TARGET_LUM > 0){
+    const hzInner = Math.sqrt(TARGET_LUM / 1.1);
+    const hzOuter = Math.sqrt(TARGET_LUM / 0.53);
+    if(hzInner < maxA * 4){
+      // Filled band
+      const hzGeo = new THREE.RingGeometry(hzInner, hzOuter, 128);
+      const hzMat = new THREE.MeshBasicMaterial({
+        color:0x44cc66, transparent:true, opacity:0.10,
+        side:THREE.DoubleSide, depthWrite:false
+      });
+      const hzMesh = new THREE.Mesh(hzGeo, hzMat);
+      hzMesh.rotation.x = Math.PI/2;
+      hzMesh.renderOrder = 1;
+      scene.add(hzMesh);
+      // Thin bright edge lines at inner and outer boundaries
+      for(const r of [hzInner, hzOuter]){
+        const edgeGeo = new THREE.RingGeometry(r*0.998, r*1.002, 128);
+        const edgeMat = new THREE.MeshBasicMaterial({
+          color:0x66ff88, transparent:true, opacity:0.30,
+          side:THREE.DoubleSide, depthWrite:false
+        });
+        const edge = new THREE.Mesh(edgeGeo, edgeMat);
+        edge.rotation.x = Math.PI/2;
+        edge.renderOrder = 2;
+        scene.add(edge);
+      }
+    }
+  }
+
   // Build planets
   planets.forEach((pd)=>{
     const {label:typeLabel, color}=planetType(pd.r_e, pd.m_e);
@@ -536,24 +616,42 @@ function openDetail(h){
   window._wbCtx=h;
   if(h.isHost){
     $('dn').textContent=h.name;
-    $('dtype').textContent='Host Star';
-    $('dorb').textContent=h.hostData.dist_ly+' ly from Sol';
-    $('dper').textContent='—';
-    $('drad').textContent='—';
-    $('dmas').textContent='—';
-    $('deqt').textContent='—';
-    $('ddis').textContent=h.hostData.planets+' known planet(s)';
+    $('dp-star-rows').style.display='';
+    $('dp-planet-rows').style.display='none';
+    // Distance
+    $('dd').textContent=h.hostData.dist_ly
+      ? h.hostData.dist_ly+' ly / '+(parseFloat(h.hostData.dist_ly)/3.26156).toFixed(3)+' pc'
+      : '—';
+    // Spectral, magnitudes
+    $('dsp').textContent=TARGET_SPECT||'—';
+    $('dm2').textContent='—';
+    $('da').textContent=isFinite(TARGET_ABSMAG)?TARGET_ABSMAG.toFixed(2):'—';
+    // Luminosity
+    const lum=TARGET_LUM;
+    $('dlum').textContent=lum>0?(lum<0.01?lum.toExponential(2):lum.toFixed(3))+' L☉':'—';
+    // Hab zone
+    if(lum>0){
+      const inner=Math.sqrt(lum/1.1).toFixed(2);
+      const outer=Math.sqrt(lum/0.53).toFixed(2);
+      $('dhz').textContent=inner+' – '+outer+' AU';
+    }else{$('dhz').textContent='—';}
+    // Planet count
+    $('dplc').textContent=h.hostData.planets+' confirmed planet'+(h.hostData.planets>1?'s':'');
     setWiki(h.name);
     $('dr-wb').style.display='';
+    $('dr-moons').style.display='none';
     $('btn-wb').textContent='✎ System Notes — '+h.name;
     $('btn-wb').onclick=()=>{
       const starObj={name:h.name,hip:parseInt(TARGET_HIP)||null,
                      hd:parseInt(TARGET_HD)||null,
-                     dist_ly:parseFloat(h.hostData.dist_ly)||0};
+                     dist_ly:parseFloat(h.hostData.dist_ly)||0,
+                     spect:TARGET_SPECT,absmag:TARGET_ABSMAG,lum:TARGET_LUM||null};
       wbOpenForStar(starObj);
     };
   } else {
     const d=h.data;
+    $('dp-star-rows').style.display='none';
+    $('dp-planet-rows').style.display='';
     const displayName=d.display_name||d.name;
     if(d.display_name&&d.name!==d.display_name){
       $('dn').innerHTML=`${d.display_name} <span style="color:var(--pdm);font-size:var(--fs-sm);font-weight:normal">(${d.name})</span>`;
@@ -567,17 +665,39 @@ function openDetail(h){
     $('ddis').textContent=(d.dm||'—')+(d.dy?' ('+d.dy+')':'');
     setWiki(d.source==='user'?null:d.name);
     $('dr-wb').style.display='';
-    $('btn-wb').textContent='✎ Notes — '+(d.display_name||d.name);
+    $('dr-moons').style.display='';
+    $('btn-moons').textContent='⬡ View Moons — '+(d.display_name||d.name);
+    $('btn-moons').onclick=()=>{
+      const base=window.location.href.replace(/\/[^\/]*$/,'/');
+      // Find wb planet_id from wbState if available
+      const planet_id = d.wb_id||0;
+      const p=new URLSearchParams({
+        planet:  d.display_name||d.name,
+        parent:  TARGET_HOST,
+        planet_id,
+        r_km:    d.r_e?Math.round(d.r_e*6371):'6371',
+        color:   h.color?h.color.slice(1):'2266aa',
+        type:    h.typeLabel||'Planet',
+        orbit_au:d.a.toFixed(4),
+        period:  d.per.toFixed(2),
+        star_hip:   TARGET_HIP||'',
+        star_hd:    TARGET_HD||'',
+        star_spect: TARGET_SPECT||'',
+        star_absmag:isFinite(TARGET_ABSMAG)?TARGET_ABSMAG:'',
+        star_dist:  parseFloat(d.dist||0)||'',
+      });
+      window.open(base+'planet-system.html?'+p.toString(),'_blank','noopener');
+    };
     $('btn-wb').onclick=async()=>{
       const starObj={name:TARGET_HOST,hip:parseInt(TARGET_HIP)||null,
-                     hd:parseInt(TARGET_HD)||null};
+                     hd:parseInt(TARGET_HD)||null,
+                     spect:TARGET_SPECT,absmag:TARGET_ABSMAG,lum:TARGET_LUM||null};
       await wbOpenForStar(starObj);
       const t=document.querySelector('.wb-tab[data-tab="wb-tab-planets"]');
       if(t) t.click();
     };
   }
 }
-
 function setWiki(name){
   if(!name){$('dr-wiki').style.display='none';return;}
   // Exoplanet Wikipedia URLs: "Proxima_Centauri_b", "51_Pegasi_b" etc.

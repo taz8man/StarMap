@@ -38,6 +38,10 @@ function wbInjectPanel(){
       style="flex:1;padding:7px 4px;font-family:'Space Mono',monospace;
              font-size:var(--fs-sm);background:none;border:none;
              color:var(--pdm);cursor:pointer;border-bottom:2px solid transparent">Planets</button>
+    <button class="wb-tab" data-tab="wb-tab-moons"
+      style="flex:1;padding:7px 4px;font-family:'Space Mono',monospace;
+             font-size:var(--fs-sm);background:none;border:none;
+             color:var(--pdm);cursor:pointer;border-bottom:2px solid transparent">Moons</button>
   </div>
 
   <!-- Scrollable content area -->
@@ -310,6 +314,70 @@ function wbInjectPanel(){
           <button id="wb-cancel-planet" class="wb-btn-sm" style="display:none">Cancel</button>
         </div>
       </div>
+    </div>
+
+    <!-- ── TAB: Moons ─────────────────────────────────────────────── -->
+    <div id="wb-tab-moons" class="wb-tab-content" style="display:none">
+      <div style="font-size:var(--fs-sm);color:var(--pdm);margin-bottom:10px">
+        Moons for the selected planet. Select a planet from the Planets tab first.
+      </div>
+      <div id="wb-moon-context" style="margin-bottom:10px;padding:6px 8px;
+        background:rgba(255,255,255,.04);border-radius:4px;display:none">
+        <span style="font-size:var(--fs-sm);color:#88bbff">🌙 Planet: </span>
+        <span id="wb-moon-planet-label" style="font-size:var(--fs-sm);color:var(--ptx)">—</span>
+      </div>
+      <div id="wb-moon-list" style="margin-bottom:12px">
+        <div style="font-size:var(--fs-sm);color:var(--pdm)">Select a planet from the Planets tab to manage its moons.</div>
+      </div>
+      <!-- Moon form -->
+      <div id="wb-moon-form" style="border:1px solid rgba(100,150,255,.2);border-radius:5px;padding:10px;display:none">
+        <div style="font-size:var(--fs-sm);color:#88bbff;margin-bottom:8px;letter-spacing:.08em" id="wb-mf-title">ADD MOON</div>
+        <input type="hidden" id="wb-mf-id" value="">
+        <div class="wb-field"><label class="wb-lbl">Fictional Name</label>
+          <input id="wb-mf-fname" class="wb-inp" type="text" placeholder="Aethon"></div>
+        <div class="wb-field"><label class="wb-lbl">Common Name</label>
+          <input id="wb-mf-cname" class="wb-inp" type="text" placeholder="The Pale Shepherd"></div>
+        <div style="font-size:var(--fs-sm);color:var(--pdm);margin:6px 0 4px;letter-spacing:.04em">ORBITAL ELEMENTS</div>
+        <div style="display:flex;gap:6px">
+          <div class="wb-field" style="flex:1"><label class="wb-lbl">Orbit (Rp)</label>
+            <input id="wb-mf-orbit" class="wb-inp" type="number" step="0.01" placeholder="10.0"></div>
+          <div class="wb-field" style="flex:1"><label class="wb-lbl">Period (days)</label>
+            <input id="wb-mf-period" class="wb-inp" type="number" step="0.001" placeholder="7.0"></div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <div class="wb-field" style="flex:1"><label class="wb-lbl">Eccentricity</label>
+            <input id="wb-mf-ecc" class="wb-inp" type="number" step="0.001" min="0" max="0.99" placeholder="0.0"></div>
+          <div class="wb-field" style="flex:1"><label class="wb-lbl">Inclination (°)</label>
+            <input id="wb-mf-inc" class="wb-inp" type="number" step="0.1" placeholder="0.0"></div>
+        </div>
+        <div style="font-size:var(--fs-sm);color:var(--pdm);margin:6px 0 4px;letter-spacing:.04em">PHYSICAL PROPERTIES</div>
+        <div class="wb-field"><label class="wb-lbl">Radius (km)</label>
+          <input id="wb-mf-radius" class="wb-inp" type="number" step="1" placeholder="500"></div>
+        <div class="wb-field"><label class="wb-lbl">World Type</label>
+          <select id="wb-mf-type" class="wb-inp">
+            <option>Rocky</option><option>Ice</option><option>Ocean</option>
+            <option>Desert</option><option>Toxic</option><option>Artificial</option><option>Other</option>
+          </select></div>
+        <div class="wb-field"><label class="wb-lbl">Atmosphere</label>
+          <select id="wb-mf-atm" class="wb-inp">
+            <option>None</option><option>Thin</option><option>Breathable</option>
+            <option>Toxic</option><option>Dense</option><option>Exotic</option>
+          </select></div>
+        <div class="wb-field"><label class="wb-lbl">Significance</label>
+          <select id="wb-mf-sig" class="wb-inp">
+            <option value="NONE">None</option><option value="MINOR">Minor</option>
+            <option value="MAJOR">Major</option><option value="CRITICAL">Critical</option>
+          </select></div>
+        <div class="wb-field"><label class="wb-lbl">Plot Notes</label>
+          <textarea id="wb-mf-notes" class="wb-inp" rows="2" style="resize:vertical;font-size:var(--fs-sm)"></textarea></div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button id="wb-save-moon" class="wb-btn-primary" style="flex:1">✓ Save Moon</button>
+          <button id="wb-cancel-moon" class="wb-btn-sm" style="display:none">Cancel</button>
+        </div>
+      </div>
+      <button id="wb-add-moon-btn" class="wb-btn-sm" style="width:100%;margin-top:8px;display:none">
+        + Add Moon
+      </button>
     </div>
 
   </div><!-- end scroll area -->

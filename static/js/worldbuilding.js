@@ -99,7 +99,7 @@ async function wbOpenForStar(star){
     ['Spectral',    star.spect || '—'],
     ['Distance',    star.dist_ly ? star.dist_ly.toFixed(3)+' ly' : '—'],
     ['Abs Mag',     isFinite(star.absmag) ? star.absmag.toFixed(2) : '—'],
-    ['Luminosity',  star.lum   ? star.lum.toFixed(3)+' L☉' : '—'],
+    ['Luminosity',  star.lum ? (star.lum < 0.01 ? star.lum.toExponential(2) : star.lum.toFixed(3))+' L☉' : '—'],
     ['HIP / HD',    (star.hip?'HIP '+star.hip:'—')+(star.hd?' · HD '+star.hd:'')],
   ];
   // Habitable zone from luminosity (Kopparapu conservative edges)
@@ -146,6 +146,17 @@ function wbSwitchTab(tabId){
     btn.style.borderBottomColor = active ? '#cc88ff' : 'transparent';
   });
   $(tabId).style.display = '';
+  // Side effects per tab
+  if(tabId === 'wb-tab-control'){
+    // Always refresh refs so era/faction/civ forms have current data
+    wbLoadRefs().then(()=>wbRenderUniverseLists());
+  }
+  if(tabId === 'wb-tab-planets' && wbState.star){
+    wbLoadPlanets();
+  }
+  if(tabId === 'wb-tab-moons' && wbMoonPlanet){
+    wbLoadMoons();
+  }
 }
 
 
@@ -291,6 +302,7 @@ function wbRenderPlanets(planets){
           </span>
           <div style="display:flex;gap:4px">
             <button onclick="wbEditPlanet(${p.id})" class="wb-btn-sm" style="font-size:10px;padding:1px 5px">edit</button>
+            <button onclick="wbOpenMoons(${p.id},'${(p.fictional_name||p.nasa_pl_name||'Planet '+p.id).replace(/'/g,"\\\'")}')" class="wb-btn-sm" style="font-size:10px;padding:1px 5px">🌙</button>
             <button onclick="wbDeletePlanet(${p.id})" class="wb-btn-sm" style="font-size:10px;padding:1px 5px">✕</button>
           </div>
         </div>
@@ -414,6 +426,99 @@ async function wbLoadPlanets(){
   wbState.planets = planets;
   wbRenderPlanets(planets);
 }
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  MOON TAB
+// ══════════════════════════════════════════════════════════════════════════════
+
+let wbMoonPlanet = null;  // {id, name} of currently selected planet for moons
+
+// Called when user clicks "🌙 Moons" on a planet card
+window.wbOpenMoons = async(planetId, planetName)=>{
+  wbMoonPlanet = {id: planetId, name: planetName};
+  // Show context label
+  const ctx = $('wb-moon-context');
+  if(ctx){ ctx.style.display=''; }
+  const lbl = $('wb-moon-planet-label');
+  if(lbl) lbl.textContent = planetName;
+  // Show add button and form
+  const addBtn = $('wb-add-moon-btn');
+  if(addBtn) addBtn.style.display='';
+  const form = $('wb-moon-form');
+  if(form) form.style.display='';
+  // Switch to moons tab
+  const t = document.querySelector('.wb-tab[data-tab="wb-tab-moons"]');
+  if(t) t.click();
+  await wbLoadMoons();
+};
+
+async function wbLoadMoons(){
+  const box = $('wb-moon-list');
+  if(!box) return;
+  if(!wbMoonPlanet){
+    box.innerHTML='<div style="font-size:var(--fs-sm);color:var(--pdm)">Select a planet from the Planets tab to manage its moons.</div>';
+    return;
+  }
+  const moons = await wbGet('/moons/by_planet/'+wbMoonPlanet.id) || [];
+  wbRenderMoons(moons);
+}
+
+function wbRenderMoons(moons){
+  const box = $('wb-moon-list');
+  if(!box) return;
+  if(!moons.length){
+    box.innerHTML='<div style="font-size:var(--fs-sm);color:var(--pdm);margin-bottom:8px">No moons added yet.</div>';
+    return;
+  }
+  box.innerHTML = moons.map(m=>`
+    <div class="wb-planet-card" style="border-color:rgba(100,150,255,.2)">
+      <div class="wb-planet-hdr">
+        <span style="font-size:var(--fs-sm);color:#88ccff">
+          🌙 ${m.fictional_name||m.nasa_moon_name||'Moon '+m.id}
+          ${m.nasa_moon_name&&m.fictional_name?'<span style="color:var(--pdm);font-size:10px"> ('+m.nasa_moon_name+')</span>':''}
+        </span>
+        <div style="display:flex;gap:4px">
+          <button onclick="wbEditMoon(${m.id})" class="wb-btn-sm" style="font-size:10px;padding:1px 5px">edit</button>
+          <button onclick="wbDeleteMoon(${m.id})" class="wb-btn-sm" style="font-size:10px;padding:1px 5px">✕</button>
+        </div>
+      </div>
+      <div style="font-size:var(--fs-sm);color:var(--pdm)">
+        ${m.world_type} · ${m.atmosphere}
+        ${m.orbit_radii?'<br>'+m.orbit_radii.toFixed(2)+' Rp':''}
+        ${m.period_days?'· '+m.period_days.toFixed(3)+'d':''}
+        ${m.radius_km?'· '+m.radius_km.toFixed(0)+' km':''}
+        ${m.plot_notes?'<br><em>'+m.plot_notes.slice(0,80)+(m.plot_notes.length>80?'…':'')+'</em>':''}
+      </div>
+    </div>`).join('');
+}
+
+window.wbEditMoon = async(id)=>{
+  const moons = await wbGet('/moons/by_planet/'+wbMoonPlanet.id) || [];
+  const m = moons.find(x=>x.id===id);
+  if(!m) return;
+  $('wb-mf-title').textContent='EDIT MOON';
+  $('wb-mf-id').value       = m.id;
+  $('wb-mf-fname').value    = m.fictional_name||'';
+  $('wb-mf-cname').value    = m.common_name||'';
+  $('wb-mf-orbit').value    = m.orbit_radii||'';
+  $('wb-mf-period').value   = m.period_days||'';
+  $('wb-mf-ecc').value      = m.eccentricity||'';
+  $('wb-mf-inc').value      = m.inclination||'';
+  $('wb-mf-radius').value   = m.radius_km||'';
+  $('wb-mf-type').value     = m.world_type||'Rocky';
+  $('wb-mf-atm').value      = m.atmosphere||'None';
+  $('wb-mf-sig').value      = m.significance||'NONE';
+  $('wb-mf-notes').value    = m.plot_notes||'';
+  if($('wb-cancel-moon')) $('wb-cancel-moon').style.display='';
+  $('wb-mf-fname').focus();
+};
+
+window.wbDeleteMoon = async(id)=>{
+  if(!confirm('Delete this moon?')) return;
+  await wbDelete('/moons/'+id);
+  await wbLoadMoons();
+};
 
 // Called by wbInjectPanel() after HTML is in the DOM
 let _wbWired = false;
@@ -738,6 +843,53 @@ function wbWirePanel(){
 
   if($('wb-close')) $('wb-close').addEventListener('click', ()=>{
     $('wb-panel').style.display='none';
+  });
+
+  // ── Moon tab buttons ──────────────────────────────────────────────────────────
+  if($('wb-add-moon-btn')) $('wb-add-moon-btn').addEventListener('click',()=>{
+    $('wb-mf-title').textContent='ADD MOON';
+    $('wb-mf-id').value='';
+    ['wb-mf-fname','wb-mf-cname','wb-mf-orbit','wb-mf-period',
+     'wb-mf-ecc','wb-mf-inc','wb-mf-radius','wb-mf-notes']
+      .forEach(id=>{ if($(id)) $(id).value=''; });
+    if($('wb-mf-type')) $('wb-mf-type').value='Rocky';
+    if($('wb-mf-atm'))  $('wb-mf-atm').value='None';
+    if($('wb-mf-sig'))  $('wb-mf-sig').value='NONE';
+    if($('wb-cancel-moon')) $('wb-cancel-moon').style.display='none';
+    if($('wb-moon-form')) $('wb-moon-form').style.display='';
+    if($('wb-mf-fname')) $('wb-mf-fname').focus();
+  });
+
+  if($('wb-cancel-moon')) $('wb-cancel-moon').addEventListener('click',()=>{
+    $('wb-mf-id').value='';
+    $('wb-mf-title').textContent='ADD MOON';
+    ['wb-mf-fname','wb-mf-cname','wb-mf-orbit','wb-mf-period',
+     'wb-mf-ecc','wb-mf-inc','wb-mf-radius','wb-mf-notes']
+      .forEach(id=>{ if($(id)) $(id).value=''; });
+    $('wb-cancel-moon').style.display='none';
+  });
+
+  if($('wb-save-moon')) $('wb-save-moon').addEventListener('click', async()=>{
+    if(!wbMoonPlanet){ alert('Select a planet first'); return; }
+    const id = $('wb-mf-id').value;
+    const payload = {
+      planet_id:    wbMoonPlanet.id,
+      fictional_name: $('wb-mf-fname').value.trim(),
+      common_name:  $('wb-mf-cname').value.trim(),
+      orbit_radii:  parseFloat($('wb-mf-orbit').value)||null,
+      period_days:  parseFloat($('wb-mf-period').value)||null,
+      eccentricity: parseFloat($('wb-mf-ecc').value)||0,
+      inclination:  parseFloat($('wb-mf-inc').value)||0,
+      radius_km:    parseFloat($('wb-mf-radius').value)||null,
+      world_type:   $('wb-mf-type').value,
+      atmosphere:   $('wb-mf-atm').value,
+      significance: $('wb-mf-sig').value,
+      plot_notes:   $('wb-mf-notes').value.trim(),
+    };
+    if(id){ await wbPut('/moons/'+id, payload); }
+    else   { await wbPost('/moons', payload); }
+    if($('wb-cancel-moon')) $('wb-cancel-moon').click();
+    await wbLoadMoons();
   });
 
   // Expose so openD can stash the star

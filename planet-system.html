@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Moon System Viewer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0ede6;--pn:rgba(10,20,38,0.91);--ptx:#c8d8f0;--pdm:#4a6080;
+  --fs:clamp(11px,1.1vw,14px);--fs-sm:calc(var(--fs)*.85);
+  --fs-md:var(--fs);--fs-lg:calc(var(--fs)*1.2);
+  --pw:clamp(180px,18vw,280px);
+}
+body{background:var(--bg);color:var(--ptx);font-family:'Space Mono',monospace;overflow:hidden;width:100vw;height:100vh}
+#wrap{position:fixed;inset:0;background:var(--bg)}
+#hdr{position:fixed;top:0;left:0;right:0;padding:clamp(6px,.8vh,12px) 18px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(to bottom,rgba(240,237,230,.97),transparent);z-index:10;pointer-events:none}
+#hdr h1{font-family:'Orbitron',monospace;font-size:clamp(11px,1.3vw,16px);letter-spacing:.18em;color:#334;pointer-events:none}
+#hdr p{font-size:var(--fs-sm);color:#667;letter-spacing:.07em;margin-top:2px}
+#sys-title{color:#334}
+#sys-sub{font-size:var(--fs-sm);color:#888;letter-spacing:.06em;margin-top:2px}
+#back-btn{pointer-events:all;font-family:'Space Mono',monospace;font-size:var(--fs-sm);
+  background:var(--pn);color:var(--ptx);border:1px solid rgba(100,150,255,.3);
+  border-radius:4px;padding:5px 12px;cursor:pointer;transition:background .15s}
+#back-btn:hover{background:rgba(0,30,60,.95)}
+.pn{position:fixed;background:var(--pn);border:1px solid rgba(100,150,255,.18);
+  border-radius:6px;padding:clamp(8px,.8vh,13px) clamp(9px,.9vw,13px);z-index:10;backdrop-filter:blur(10px)}
+.pn h4{font-family:'Orbitron',sans-serif;font-size:var(--fs-sm);letter-spacing:.12em;color:var(--pdm);margin-bottom:7px;text-transform:uppercase}
+#dp{top:clamp(65px,7vh,95px);right:18px;width:var(--pw);display:none;z-index:16}
+#dp h4{color:#88bbff;font-size:var(--fs-md);margin-bottom:8px;padding-right:18px}
+.dr{font-size:var(--fs-md);margin-bottom:4px;color:var(--ptx)}
+.dr .lb{color:var(--pdm);display:inline-block;min-width:90px}
+#cs{position:absolute;top:7px;right:9px;font-size:var(--fs-lg);color:var(--pdm);cursor:pointer;background:none;border:none}
+#cs:hover{color:#88bbff}
+#dr-wiki{margin-top:4px}
+#dwiki{display:inline-block;font-size:var(--fs-sm);color:#4499ff;text-decoration:none;
+  padding:3px 8px;border:1px solid rgba(68,153,255,.3);border-radius:3px;transition:background .15s}
+#dwiki:hover{background:rgba(68,153,255,.15)}
+#dr-wb{margin-top:6px}
+
+/* planet rows / moon rows toggle */
+#dp-planet-rows .dr, #dp-moon-rows .dr{margin-bottom:4px}
+
+#tp{position:fixed;pointer-events:none;z-index:30;display:none;background:var(--pn);
+  border:1px solid rgba(100,150,255,.3);border-radius:4px;padding:7px 11px;
+  max-width:230px;backdrop-filter:blur(8px)}
+#tp h3{font-family:'Orbitron',sans-serif;font-size:var(--fs-lg);color:#88bbff;margin-bottom:3px}
+#tp p{font-size:var(--fs-md);color:var(--ptx);line-height:1.6}
+#ds{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);
+  font-size:var(--fs-sm);color:#8899aa;pointer-events:none;z-index:10;letter-spacing:.05em}
+/* playback */
+#tc{bottom:30px;left:50%;transform:translateX(-50%);display:flex;align-items:center;
+  gap:10px;padding:7px 14px;white-space:nowrap}
+#btn-play{font-family:'Space Mono',monospace;font-size:var(--fs-md);background:rgba(0,102,204,.55);
+  color:var(--ptx);border:1px solid rgba(100,150,255,.4);border-radius:4px;
+  padding:3px 11px;cursor:pointer;transition:background .15s}
+#speed-sl{width:clamp(70px,7vw,120px);height:2px;-webkit-appearance:none;
+  background:rgba(100,150,255,.2);outline:none;border-radius:2px;cursor:pointer}
+#speed-lbl{font-size:var(--fs-sm);color:#88bbff;min-width:60px}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="/static/css/worldbuilding.css">
+</head>
+<body>
+<div id="wrap"></div>
+<div id="hdr">
+  <div>
+    <h1 id="sys-title">MOON SYSTEM</h1>
+    <p id="sys-sub">Loading…</p>
+  </div>
+  <button id="back-btn" onclick="window.history.length>1?history.back():window.close()">← Back</button>
+</div>
+
+<div class="pn" id="dp">
+  <button id="cs">✕</button>
+  <h4 id="dn">—</h4>
+
+  <!-- Planet (center body) rows -->
+  <div id="dp-planet-rows" style="display:none">
+    <div class="dr"><span class="lb">Type      </span><span id="dp-type"></span></div>
+    <div class="dr"><span class="lb">Radius    </span><span id="dp-rad"></span></div>
+    <div class="dr"><span class="lb">Orbit     </span><span id="dp-orb"></span></div>
+    <div class="dr"><span class="lb">Period    </span><span id="dp-per"></span></div>
+    <div class="dr"><span class="lb">Moons     </span><span id="dp-moons"></span></div>
+  </div>
+
+  <!-- Moon rows -->
+  <div id="dp-moon-rows" style="display:none">
+    <div class="dr"><span class="lb">Type      </span><span id="dm-type"></span></div>
+    <div class="dr"><span class="lb">Orbit     </span><span id="dm-orb"></span></div>
+    <div class="dr"><span class="lb">Period    </span><span id="dm-per"></span></div>
+    <div class="dr"><span class="lb">Radius    </span><span id="dm-rad"></span></div>
+    <div class="dr"><span class="lb">Atmosphere</span><span id="dm-atm"></span></div>
+  </div>
+
+  <div id="dr-wiki" style="display:none;margin-top:4px">
+    <a id="dwiki" href="#" target="_blank" rel="noopener">⬡ Wikipedia</a>
+  </div>
+  <div id="dr-wb" style="display:none;margin-top:6px">
+    <button id="btn-wb"
+      style="font-family:'Space Mono',monospace;font-size:var(--fs-md);
+             background:rgba(160,80,220,.22);color:#cc88ff;
+             border:1px solid rgba(160,80,220,.45);border-radius:3px;
+             padding:4px 10px;cursor:pointer;width:100%;letter-spacing:.05em">
+      ✎ Worldbuilding Notes
+    </button>
+  </div>
+</div>
+
+<!-- WB panel injected by worldbuilding-panel.js -->
+
+<div class="pn" id="tc">
+  <button id="btn-play">⏸</button>
+  <label style="font-size:var(--fs-sm);color:var(--pdm)">Speed</label>
+  <input type="range" id="speed-sl" min="0.01" max="10" step="0.01" value="1">
+  <span id="speed-lbl" style="font-size:var(--fs-sm);color:#88bbff;min-width:60px">×1 d/s</span>
+</div>
+
+<div id="tp"><h3 id="tn"></h3><p id="tb"></p></div>
+<div id="ds">MOON SYSTEM · KEPLERIAN ORBITS</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/static/js/worldbuilding-panel.js"></script>
+<script src="/static/js/worldbuilding.js"></script>
+<script>
+'use strict';
+
+// ── Shared WB setup ──────────────────────────────────────────────────────────
+// WB_API and $ defined by worldbuilding.js — no redeclaration needed
+document.addEventListener('DOMContentLoaded', ()=>{
+  wbInjectPanel();
+  const p = document.getElementById('wb-panel');
+  if(p){
+    p.style.cssText += ';position:fixed;top:clamp(70px,7vh,100px);'
+      + 'right:calc(var(--pw) + 28px);width:clamp(300px,28vw,420px);'
+      + 'max-height:calc(100vh - clamp(70px,7vh,100px) - 30px);'
+      + 'background:var(--pn);border:1px solid rgba(160,80,220,.35);'
+      + 'border-radius:8px;z-index:20;backdrop-filter:blur(12px);overflow:hidden;';
+  }
+  // Pre-load refs so era/faction dropdowns work without clicking a star first
+  if(typeof wbLoadRefs==='function') wbLoadRefs();
+});
+
+// ── URL PARAMS ───────────────────────────────────────────────────────────────
+const params      = new URLSearchParams(window.location.search);
+const TARGET_PLANET   = (params.get('planet') ||'').trim();
+const TARGET_PARENT   = (params.get('parent') ||'Sol').trim();
+const TARGET_PLANET_ID= parseInt(params.get('planet_id')||'0')||0;
+const TARGET_R_KM     = parseFloat(params.get('r_km')||'6371');
+const TARGET_COLOR    = '#'+(params.get('color')||'2266aa');
+const TARGET_TYPE     = (params.get('type')||'Planet').trim();
+const TARGET_ORBIT_AU = parseFloat(params.get('orbit_au')||'0');
+const TARGET_PERIOD   = parseFloat(params.get('period')||'365');
+// Host star context — passed from exo/solar viewer
+const TARGET_STAR_NAME  = (params.get('star_name')||TARGET_PARENT).trim();
+const TARGET_STAR_HIP   = (params.get('star_hip')||'').trim();
+const TARGET_STAR_HD    = (params.get('star_hd')||'').trim();
+const TARGET_STAR_SPECT = (params.get('star_spect')||'').trim();
+const TARGET_STAR_ABSMAG= parseFloat(params.get('star_absmag')||'NaN');
+const TARGET_STAR_DIST  = parseFloat(params.get('star_dist')||'0');
+// Derive lum from absmag + bolometric correction (same as exo viewer)
+function bcForSpectMoon(spect){
+  const s=(spect||'').trim().toUpperCase();
+  if(s.startsWith('O')) return -4.0;
+  if(s.startsWith('B')) return -2.0;
+  if(s.startsWith('A')) return -0.3;
+  if(s.startsWith('F')) return -0.1;
+  if(s.startsWith('G')) return -0.1;
+  if(s.startsWith('K')) return -0.4;
+  if(s.startsWith('M')){
+    const sub=s.length>1&&s[1]>='0'&&s[1]<='9'?parseFloat(s[1]):2.0;
+    return -(1.0+sub*0.25);
+  }
+  if(s.startsWith('D')) return -0.5;
+  return -0.1;
+}
+const TARGET_STAR_LUM = isFinite(TARGET_STAR_ABSMAG)
+  ? Math.pow(10,(4.83-(TARGET_STAR_ABSMAG+bcForSpectMoon(TARGET_STAR_SPECT)))/2.5)
+  : null;
+
+// ── SCENE ────────────────────────────────────────────────────────────────────
+const scene    = new THREE.Scene();
+scene.background = new THREE.Color(0xf0ede6);
+const camera   = new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.0001,200);
+camera.position.set(0,3,6);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.setClearColor(0xf0ede6,1);
+$('wrap').appendChild(renderer.domElement);
+window.addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+// ── ORBIT CONTROLS ───────────────────────────────────────────────────────────
+const cam={
+  sph:new THREE.Spherical(6,1.1,.5),
+  target:new THREE.Vector3(),pan:new THREE.Vector3(),
+  drag:false,right:false,last:{x:0,y:0},
+  update(){
+    this.sph.phi=Math.max(.05,Math.min(Math.PI-.05,this.sph.phi));
+    this.sph.radius=Math.max(.001,Math.min(50,this.sph.radius));
+    camera.position.setFromSpherical(this.sph).add(this.target).add(this.pan);
+    camera.lookAt(new THREE.Vector3().addVectors(this.target,this.pan));
+  }
+};
+const cvs=renderer.domElement;
+cvs.addEventListener('contextmenu',e=>e.preventDefault());
+cvs.addEventListener('mousedown',e=>{cam.drag=true;cam.right=e.button===2;cam.last={x:e.clientX,y:e.clientY};});
+window.addEventListener('mouseup',()=>cam.drag=false);
+window.addEventListener('mousemove',e=>{
+  if(!cam.drag)return;
+  const dx=e.clientX-cam.last.x,dy=e.clientY-cam.last.y;
+  if(cam.right){
+    const sp=cam.sph.radius*.0012,r=new THREE.Vector3(),u=new THREE.Vector3(0,1,0);
+    r.crossVectors(camera.getWorldDirection(new THREE.Vector3()),u).normalize();
+    cam.pan.addScaledVector(r,-dx*sp).addScaledVector(u,dy*sp);
+  } else {cam.sph.theta-=dx*.005;cam.sph.phi-=dy*.005;}
+  cam.last={x:e.clientX,y:e.clientY};
+});
+cvs.addEventListener('wheel',e=>{e.preventDefault();cam.sph.radius*=1+e.deltaY*.001;},{passive:false});
+
+// ── LABEL SYSTEM ─────────────────────────────────────────────────────────────
+const LABEL_PX_H=15,HALO_COLOR='rgba(240,237,230,0.92)',HALO_W=5;
+function makeLabel(txt,hexCol){
+  const canvH=LABEL_PX_H*3;
+  const c=document.createElement('canvas'),ctx=c.getContext('2d');
+  const fs=Math.round(canvH*.78);
+  ctx.font=`700 ${fs}px "Space Mono",monospace`;
+  const tw=Math.ceil(ctx.measureText(txt).width)+HALO_W*2+10;
+  c.width=tw;c.height=canvH;
+  ctx.font=`700 ${fs}px "Space Mono",monospace`;
+  ctx.lineWidth=HALO_W*2;ctx.lineJoin='round';ctx.strokeStyle=HALO_COLOR;ctx.strokeText(txt,HALO_W+5,fs);
+  const ri=parseInt(hexCol.slice(1,3),16)/255;
+  const gi=parseInt(hexCol.slice(3,5),16)/255;
+  const bi=parseInt(hexCol.slice(5,7),16)/255;
+  ctx.fillStyle=`rgb(${Math.round(ri*.3*255)},${Math.round(gi*.3*255)},${Math.round(Math.min(bi*.3+.1,1)*255)})`;
+  ctx.fillText(txt,HALO_W+5,fs);
+  const tex=new THREE.CanvasTexture(c);
+  tex.minFilter=tex.magFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,opacity:.95,depthWrite:false,depthTest:false}));
+  sp.renderOrder=999;sp.userData.aspect=tw/canvH;sp.scale.set(1,1,1);
+  return sp;
+}
+const _ndc=new THREE.Vector3(),_off=new THREE.Vector3();
+function updateLabelScale(sprite,wx,wy,wz){
+  const H=renderer.domElement.clientHeight||innerHeight;
+  const W=renderer.domElement.clientWidth||innerWidth;
+  _ndc.set(wx,wy,wz).project(camera);const depth=_ndc.z;
+  const ndcH=(LABEL_PX_H/H)*2;
+  _off.set(_ndc.x,_ndc.y+ndcH,depth).unproject(camera);
+  const wH=_off.distanceTo(new THREE.Vector3(wx,wy,wz));
+  const asp=sprite.userData.aspect||4;sprite.scale.set(wH*asp,wH,1);
+  const ndcX=(8/W)*2;_off.set(_ndc.x+ndcX,_ndc.y,depth).unproject(camera);
+  sprite.position.set(_off.x+wH*asp*.5,_off.y+wH*.5,_off.z);
+}
+
+// ── MOON TYPE CLASSIFIER ─────────────────────────────────────────────────────
+function moonType(r_km){
+  if(!r_km||r_km<=0) return {label:'Moon',color:'#aaaaaa'};
+  if(r_km>2000)  return {label:'Large Moon',  color:'#8899bb'};
+  if(r_km>500)   return {label:'Mid Moon',    color:'#7788aa'};
+  if(r_km>50)    return {label:'Small Moon',  color:'#667799'};
+  return              {label:'Moonlet',        color:'#556688'};
+}
+
+// ── ORBIT PATH ───────────────────────────────────────────────────────────────
+function makeOrbitLine(a,e,color,inc_deg,argp_deg){
+  const inc=(inc_deg||0)*Math.PI/180;
+  const argp=(argp_deg||0)*Math.PI/180;
+  const pts=[];
+  for(let i=0;i<=256;i++){
+    const f=i/256*Math.PI*2;
+    const r=a*(1-e*e)/(1+e*Math.cos(f));
+    const xOrb=r*Math.cos(f+argp);
+    const yOrb=r*Math.sin(f+argp);
+    pts.push(new THREE.Vector3(xOrb,yOrb*Math.sin(inc),yOrb*Math.cos(inc)));
+  }
+  const mat=new THREE.LineBasicMaterial({color:parseInt(color.slice(1),16),transparent:true,opacity:.3});
+  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),mat);
+}
+
+// ── BODY MESH ─────────────────────────────────────────────────────────────────
+function makeBodyMesh(r_vis,color){
+  const c=new THREE.Color(color);
+  const dark=new THREE.Color(c.r*.28,c.g*.28,c.b*.28+.04);
+  return new THREE.Mesh(
+    new THREE.SphereGeometry(r_vis,20,14),
+    new THREE.MeshPhongMaterial({color:dark,emissive:dark.clone().multiplyScalar(.35),
+      specular:new THREE.Color(.08,.08,.12),shininess:25})
+  );
+}
+
+// ── LIGHTING ─────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xf0ede6,.4));
+const bodyLight=new THREE.PointLight(0xffeedd,1.5,30);
+scene.add(bodyLight);
+
+// ── SIM STATE ─────────────────────────────────────────────────────────────────
+let moonObjects=[];
+let simDays=0;
+let playing=true;
+let simSpeed=1;
+
+window.addEventListener('DOMContentLoaded',()=>{
+  const btn=$('btn-play');
+  btn.addEventListener('click',()=>{
+    playing=!playing;
+    btn.textContent=playing?'⏸':'▶';
+    btn.style.background=playing?'rgba(0,102,204,.55)':'rgba(0,102,204,.25)';
+  });
+  $('speed-sl').addEventListener('input',e=>{
+    simSpeed=+e.target.value;
+    $('speed-lbl').textContent='×'+simSpeed.toFixed(simSpeed<1?2:0)+' d/s';
+  });
+});
+
+// ── KNOWN MOON CATALOG ────────────────────────────────────────────────────────
+// [name, orbit_radii, period_days, r_km, color, world_type, atmosphere, wiki_slug]
+// orbit_radii = semi-major axis in parent planet radii
+const KNOWN_MOONS = {
+  // Earth
+  'Earth':  [
+    {name:'Moon',      a:60.27,  per:27.32,  r:1737,  color:'#aaaaaa', type:'Rocky',  atm:'None',         wiki:'Moon'},
+  ],
+  // Mars
+  'Mars':   [
+    {name:'Phobos',    a:2.76,   per:0.319,  r:11.3,  color:'#998877', type:'Rocky',  atm:'None',         wiki:'Phobos'},
+    {name:'Deimos',    a:6.92,   per:1.263,  r:6.2,   color:'#887766', type:'Rocky',  atm:'None',         wiki:'Deimos'},
+  ],
+  // Jupiter
+  'Jupiter':[
+    {name:'Io',        a:5.90,   per:1.769,  r:1821,  color:'#d4a030', type:'Rocky',  atm:'Thin',         wiki:'Io_(moon)'},
+    {name:'Europa',    a:9.40,   per:3.551,  r:1560,  color:'#c8b090', type:'Ice',    atm:'Thin',         wiki:'Europa_(moon)'},
+    {name:'Ganymede',  a:15.00,  per:7.155,  r:2634,  color:'#998877', type:'Ice',    atm:'Thin',         wiki:'Ganymede_(moon)'},
+    {name:'Callisto',  a:26.33,  per:16.69,  r:2410,  color:'#887766', type:'Ice',    atm:'None',         wiki:'Callisto_(moon)'},
+  ],
+  // Saturn
+  'Saturn': [
+    {name:'Mimas',     a:3.08,   per:0.942,  r:198,   color:'#ccbbaa', type:'Ice',    atm:'None',         wiki:'Mimas_(moon)'},
+    {name:'Enceladus', a:3.95,   per:1.370,  r:252,   color:'#ffffff', type:'Ice',    atm:'Thin',         wiki:'Enceladus'},
+    {name:'Tethys',    a:4.89,   per:1.888,  r:531,   color:'#ddccbb', type:'Ice',    atm:'None',         wiki:'Tethys_(moon)'},
+    {name:'Dione',     a:6.26,   per:2.737,  r:561,   color:'#ccbbaa', type:'Ice',    atm:'None',         wiki:'Dione_(moon)'},
+    {name:'Rhea',      a:8.74,   per:4.518,  r:764,   color:'#ccbbaa', type:'Ice',    atm:'None',         wiki:'Rhea_(moon)'},
+    {name:'Titan',     a:20.27,  per:15.95,  r:2574,  color:'#cc9940', type:'Rocky',  atm:'Dense',        wiki:'Titan_(moon)'},
+    {name:'Iapetus',   a:59.08,  per:79.32,  r:736,   color:'#887755', type:'Ice',    atm:'None',         wiki:'Iapetus_(moon)'},
+  ],
+  // Uranus
+  'Uranus': [
+    {name:'Miranda',   a:5.08,   per:1.413,  r:236,   color:'#aabbcc', type:'Ice',    atm:'None',         wiki:'Miranda_(moon)'},
+    {name:'Ariel',     a:7.47,   per:2.520,  r:579,   color:'#aabbcc', type:'Ice',    atm:'None',         wiki:'Ariel_(moon)'},
+    {name:'Umbriel',   a:10.40,  per:4.144,  r:585,   color:'#889999', type:'Ice',    atm:'None',         wiki:'Umbriel_(moon)'},
+    {name:'Titania',   a:17.07,  per:8.706,  r:789,   color:'#aabbcc', type:'Ice',    atm:'None',         wiki:'Titania_(moon)'},
+    {name:'Oberon',    a:22.83,  per:13.46,  r:761,   color:'#889999', type:'Ice',    atm:'None',         wiki:'Oberon_(moon)'},
+  ],
+  // Neptune
+  'Neptune':[
+    {name:'Proteus',   a:4.75,   per:1.122,  r:210,   color:'#7788aa', type:'Rocky',  atm:'None',         wiki:'Proteus_(moon)'},
+    {name:'Triton',    a:14.33,  per:5.877,  r:1353,  color:'#99aacc', type:'Ice',    atm:'Thin',         wiki:'Triton_(moon)'},
+    {name:'Nereid',    a:222.7,  per:360.1,  r:170,   color:'#7788aa', type:'Rocky',  atm:'None',         wiki:'Nereid_(moon)'},
+  ],
+};
+
+// ── KEPLERIAN POSITION ────────────────────────────────────────────────────────
+function keplerPos(a,e,inc_deg,argp_deg,period,days){
+  const M=(days/period*Math.PI*2)%(Math.PI*2);
+  let E=M;for(let i=0;i<10;i++)E=M+e*Math.sin(E);
+  const f=2*Math.atan2(Math.sqrt(1+e)*Math.sin(E/2),Math.sqrt(1-e)*Math.cos(E/2));
+  const r=a*(1-e*Math.cos(E));
+  const argp=(argp_deg||0)*Math.PI/180;
+  const inc=(inc_deg||0)*Math.PI/180;
+  const xOrb=r*Math.cos(f+argp);
+  const yOrb=r*Math.sin(f+argp);
+  return new THREE.Vector3(xOrb,yOrb*Math.sin(inc),yOrb*Math.cos(inc));
+}
+
+// ── BUILD SCENE ───────────────────────────────────────────────────────────────
+async function loadSystem(){
+  $('sys-title').textContent = TARGET_PLANET.toUpperCase()+' SYSTEM';
+
+  // Get known moons for this planet
+  const knownMoons = KNOWN_MOONS[TARGET_PLANET] || [];
+
+  // Get user moons from API
+  let userMoons = [];
+  if(TARGET_PLANET_ID){
+    try{
+      const r = await fetch('/api/world/allmoons/'+TARGET_PLANET_ID);
+      if(r.ok){ const ct=r.headers.get('content-type')||''; if(ct.includes('json')) userMoons=await r.json(); }
+    }catch(e){}
+  }
+
+  // Merge: known moons + user-created moons (mark imported known moons)
+  const importedNames = new Set(userMoons.map(m=>m.nasa_moon_name).filter(Boolean));
+  const allMoons = [];
+
+  // Known moons — apply user overlay if imported
+  for(const km of knownMoons){
+    const overlay = userMoons.find(m=>m.nasa_moon_name===km.name);
+    allMoons.push({
+      name:       km.name,
+      display_name: (overlay&&overlay.fictional_name)||km.name,
+      a:          km.a,
+      per:        km.per,
+      r_km:       (overlay&&overlay.radius_km)||km.r,
+      ecc:        (overlay&&overlay.eccentricity)||0,
+      inc:        (overlay&&overlay.inclination)||0,
+      argp:       0,
+      color:      km.color,
+      world_type: (overlay&&overlay.world_type)||km.type,
+      atmosphere: (overlay&&overlay.atmosphere)||km.atm,
+      wiki:       km.wiki,
+      source:     'known',
+      wb_id:      (overlay&&overlay.id)||null,
+    });
+  }
+
+  // User-only moons (no NASA match)
+  for(const um of userMoons){
+    if(!um.nasa_moon_name && um.orbit_radii){
+      allMoons.push({
+        name:         um.fictional_name||um.common_name||'Moon '+um.id,
+        display_name: um.fictional_name||um.common_name||'Moon '+um.id,
+        a:            um.orbit_radii,
+        per:          um.period_days || Math.sqrt(Math.pow(um.orbit_radii*TARGET_R_KM/6371,3))*27.32,
+        r_km:         um.radius_km||100,
+        ecc:          um.eccentricity||0,
+        inc:          um.inclination||0,
+        argp:         um.arg_peri||0,
+        color:        '#8899bb',
+        world_type:   um.world_type||'Rocky',
+        atmosphere:   um.atmosphere||'None',
+        wiki:         null,
+        source:       'user',
+        wb_id:        um.id,
+      });
+    }
+  }
+
+  $('sys-sub').textContent =
+    `${allMoons.length} MOON${allMoons.length!==1?'S':''} · `+
+    `ORBITS IN PLANET RADII · BODIES MAGNIFIED`+
+    (TARGET_PARENT ? ` · ${TARGET_PARENT} SYSTEM` : '');
+
+  if(!allMoons.length){
+    $('sys-sub').textContent='No known moon data for '+TARGET_PLANET
+      +' — add moons via the Worldbuilding panel';
+    return;
+  }
+
+  buildScene(allMoons);
+}
+
+function buildFallback(){
+  buildPlanet(TARGET_PLANET, 0.05);
+}
+
+function buildPlanet(name, r_vis){
+  const col = parseInt(TARGET_COLOR.slice(1),16)||0x2266aa;
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(r_vis,32,22),
+    new THREE.MeshBasicMaterial({color:col})
+  );
+  scene.add(mesh);
+  const lbl = makeLabel(name, TARGET_COLOR);
+  scene.add(lbl);
+  return {mesh, label:lbl};
+}
+
+const pickables=[];
+
+function buildScene(moons){
+  moons.sort((a,b)=>a.a-b.a);
+
+  const MIN_MOON_VIS = 0.003;
+  const MAX_PLANET_VIS = 0.08;
+  const MIN_PLANET_VIS = 0.015;
+
+  // Scale: 1 scene unit = innermost orbit semi-major axis
+  const innerOrbit = moons[0].a;
+  const outerOrbit = moons[moons.length-1].a;
+  const scale = 1 / innerOrbit;  // scene units per planet radius
+
+  // Planet visual radius — fraction of innermost orbit
+  const planetR_scene = Math.min(Math.max(innerOrbit*scale*0.12, MIN_PLANET_VIS), MAX_PLANET_VIS);
+
+  const planetObj = buildPlanet(TARGET_PLANET, planetR_scene);
+  pickables.push({mesh:planetObj.mesh, isPlanet:true,
+    data:{name:TARGET_PLANET, r_km:TARGET_R_KM, type:TARGET_TYPE,
+          orbit_au:TARGET_ORBIT_AU, period:TARGET_PERIOD, moons:moons.length}});
+
+  // Camera distance
+  const maxA = moons[moons.length-1].a * scale;
+  cam.sph.radius = Math.max(maxA*2.5, planetR_scene*8);
+
+  // Ecliptic disc
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(maxA*1.1,64),
+    new THREE.MeshBasicMaterial({color:0xc8c4bc,transparent:true,opacity:.04,side:THREE.DoubleSide,depthWrite:false})
+  );
+  disc.rotation.x = Math.PI/2;
+  scene.add(disc);
+
+  // Build moons
+  moons.forEach(md=>{
+    const a_scene = md.a * scale;
+    const {label:typeLabel, color} = moonType(md.r_km);
+    const r_vis = Math.max((md.r_km/TARGET_R_KM)*planetR_scene*2, MIN_MOON_VIS);
+
+    const orbit = makeOrbitLine(a_scene, md.ecc, md.color, md.inc, md.argp);
+    scene.add(orbit);
+
+    const mesh = makeBodyMesh(r_vis, md.color);
+    scene.add(mesh);
+
+    const lblText = md.display_name !== md.name
+      ? md.display_name
+      : (md.name.length > 8 ? md.name.slice(0,7)+'…' : md.name);
+    const lbl = makeLabel(lblText, md.color);
+    scene.add(lbl);
+
+    moonObjects.push({data:md, mesh, label:lbl, typeLabel,
+      a_scene, scale, r_vis, color:md.color});
+  });
+
+  // Wire pickables
+  moonObjects.forEach(mo=>pickables.push({
+    mesh:mo.mesh, isMoon:true, data:mo.data, typeLabel:mo.typeLabel
+  }));
+}
+
+// ── PICKING ───────────────────────────────────────────────────────────────────
+const ray=new THREE.Raycaster();
+const mv2=new THREE.Vector2();
+
+function pick(mx,my){
+  mv2.set((mx/innerWidth)*2-1,-(my/innerHeight)*2+1);
+  ray.setFromCamera(mv2,camera);
+  const hits=ray.intersectObjects(pickables.map(p=>p.mesh),false);
+  if(!hits.length)return null;
+  return pickables.find(p=>p.mesh===hits[0].object)||null;
+}
+
+const tp=$('tp');
+cvs.addEventListener('mousemove',e=>{
+  if(cam.drag){tp.style.display='none';return;}
+  const h=pick(e.clientX,e.clientY);
+  if(h){
+    tp.style.display='block';tp.style.left=(e.clientX+14)+'px';tp.style.top=(e.clientY-10)+'px';
+    if(h.isPlanet){
+      $('tn').textContent=h.data.name;
+      $('tb').innerHTML=`${h.data.type} · <b>${h.data.moons}</b> moon${h.data.moons!==1?'s':''}`;
+    } else if(h.isMoon){
+      const d=h.data;
+      $('tn').textContent=d.display_name||d.name;
+      $('tb').innerHTML=`${h.typeLabel} · Orbit: <b>${d.a.toFixed(1)}</b> R<sub>p</sub> · Period: <b>${d.per.toFixed(2)}d</b>`;
+    }
+    cvs.style.cursor='pointer';
+  } else {tp.style.display='none';cvs.style.cursor='default';}
+});
+
+cvs.addEventListener('click',e=>{
+  const h=pick(e.clientX,e.clientY);
+  if(!h)return;
+  openDetail(h);
+});
+
+$('cs').addEventListener('click',()=>$('dp').style.display='none');
+
+function openDetail(h){
+  $('dp').style.display='block';
+  if(h.isPlanet){
+    const d=h.data;
+    $('dn').textContent=d.name;
+    $('dp-planet-rows').style.display='';
+    $('dp-moon-rows').style.display='none';
+    $('dp-type').textContent=d.type||'—';
+    $('dp-rad').textContent=d.r_km?(d.r_km*2).toLocaleString()+' km diameter':'—';
+    $('dp-orb').textContent=d.orbit_au?d.orbit_au.toFixed(4)+' AU':'—';
+    $('dp-per').textContent=d.period?d.period.toFixed(2)+' days':'—';
+    $('dp-moons').textContent=d.moons+' moon'+(d.moons!==1?'s':'');
+    $('dr-wiki').style.display='none';
+    $('dr-wb').style.display='none';
+  } else {
+    const d=h.data;
+    $('dn').innerHTML=d.display_name!==d.name
+      ? `${d.display_name} <span style="color:var(--pdm);font-size:var(--fs-sm)">(${d.name})</span>`
+      : d.name;
+    $('dp-planet-rows').style.display='none';
+    $('dp-moon-rows').style.display='';
+    $('dm-type').innerHTML=h.typeLabel
+      + (d.source==='user'?' · <span style="color:#cc88ff">✎ User Created</span>':'');
+    $('dm-orb').textContent=d.a.toFixed(2)+' Rp ('+
+      (d.a*TARGET_R_KM/1000).toFixed(0)+' 000 km)';
+    $('dm-per').textContent=d.per.toFixed(3)+' days';
+    $('dm-rad').textContent=d.r_km?d.r_km.toFixed(0)+' km radius':'—';
+    $('dm-atm').textContent=d.atmosphere||'—';
+    // Wiki
+    if(d.wiki){
+      $('dwiki').href='https://en.wikipedia.org/wiki/'+d.wiki;
+      $('dr-wiki').style.display='';
+    } else {$('dr-wiki').style.display='none';}
+    // WB button
+    $('dr-wb').style.display='';
+    $('btn-wb').textContent='✎ Notes — '+(d.display_name||d.name);
+    $('btn-wb').onclick=async()=>{
+      const starObj={
+        name:    TARGET_STAR_NAME,
+        hip:     parseInt(TARGET_STAR_HIP)||null,
+        hd:      parseInt(TARGET_STAR_HD)||null,
+        spect:   TARGET_STAR_SPECT,
+        absmag:  TARGET_STAR_ABSMAG,
+        lum:     TARGET_STAR_LUM,
+        dist_ly: TARGET_STAR_DIST,
+      };
+      await wbOpenForStar(starObj);
+      // Switch to planets tab and activate this planet's moons
+      const planetsTab=document.querySelector('.wb-tab[data-tab="wb-tab-planets"]');
+      if(planetsTab) await new Promise(res=>{planetsTab.click();setTimeout(res,100);});
+      // Auto-open moons for current planet if wb_id known
+      if(TARGET_PLANET_ID && typeof wbOpenMoons==='function'){
+        await wbOpenMoons(TARGET_PLANET_ID, TARGET_PLANET);
+      }
+    };
+  }
+}
+
+// ── RENDER LOOP ───────────────────────────────────────────────────────────────
+let lastT=performance.now();
+function animate(){
+  requestAnimationFrame(animate);
+  const now=performance.now();
+  const dt=(now-lastT)/1000;
+  lastT=now;
+
+  if(playing) simDays+=simSpeed*dt;
+
+  cam.update();
+
+  // Update moon positions
+  moonObjects.forEach(mo=>{
+    const d=mo.data;
+    const pos=keplerPos(mo.a_scene,d.ecc||0,d.inc||0,d.argp||0,d.per,simDays);
+    mo.mesh.position.copy(pos);
+    updateLabelScale(mo.label, pos.x, pos.y, pos.z);
+  });
+
+  // Planet label stays at origin
+  if(pickables[0]&&pickables[0].isPlanet){
+    const pobj=moonObjects.length?null:null;
+  }
+  // Update planet label position (always at origin)
+  const planetPickable=pickables.find(p=>p.isPlanet);
+  if(planetPickable){
+    const planetMesh=planetPickable.mesh;
+    // find the label sprite (second child of scene added after planet mesh)
+    scene.children.forEach(c=>{
+      if(c.isSprite&&c.userData.aspect){
+        // Check if it's the planet label (position near 0,0,0)
+        if(c.position.length()<0.2){
+          updateLabelScale(c,0,0,0);
+        }
+      }
+    });
+  }
+
+  renderer.render(scene,camera);
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+loadSystem().then(()=>animate()).catch(err=>{
+  $('sys-sub').textContent='Error loading system: '+err.message;
+  console.error('loadSystem error:', err);
+  animate(); // still render the empty scene
+});
+</script>
+</body>
+</html>

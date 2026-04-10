@@ -91,6 +91,15 @@ canvas{display:block;position:absolute;inset:0;width:100%!important;height:100%!
   <div class="dr" id="dr-wiki" style="display:none">
     <a id="dwiki" href="#" target="_blank" rel="noopener">⬡ Wikipedia</a>
   </div>
+  <div id="dr-moons" style="display:none;margin-top:4px">
+    <button id="btn-moons"
+      style="font-family:'Space Mono',monospace;font-size:var(--fs-md);
+             background:rgba(0,80,180,.25);color:#88aaff;
+             border:1px solid rgba(68,153,255,.45);border-radius:3px;
+             padding:4px 10px;cursor:pointer;width:100%;letter-spacing:.05em">
+      ⬡ View Moon System
+    </button>
+  </div>
 </div>
 
 <div class="pn" id="tc">
@@ -520,6 +529,7 @@ function openDetail(h){
     $('dday').textContent=`${md.period.toFixed(2)}d (tidally locked)`;
     $('dyear').textContent=`${md.period.toFixed(2)}d`;
     $('dmoons').textContent='0';
+    $('dr-moons').style.display='none';
     setWiki(md.name);
   } else {
     const d=h.data;
@@ -532,6 +542,33 @@ function openDetail(h){
     $('dyear').textContent=d.year;
     $('dmoons').textContent=d.moons.toString();
     setWiki(d.name);
+    // Show moon viewer button for planets that have moons
+    if(d.moons > 0){
+      $('dr-moons').style.display='';
+      $('btn-moons').textContent='⬡ View '+d.moons+' Moon'+(d.moons>1?'s':'')+' — '+d.name;
+      $('btn-moons').onclick=()=>{
+        const base=window.location.href.replace(/\/[^\/]*$/,'/');
+        const p=new URLSearchParams({
+          planet:   d.name,
+          parent:   'Sol',
+          planet_id:0,
+          r_km:     Math.round(d.r),
+          color:    d.color.slice(1),
+          type:     d.type,
+          orbit_au: d.a.toFixed(4),
+          period:   d.year,
+          star_hip:    '',
+          star_hd:     '',
+          star_spect:  'G2V',
+          star_absmag: '4.83',
+          star_dist:   '0',
+          star_name:   'Sol',
+        });
+        window.open(base+'planet-system.html?'+p.toString(),'_blank','noopener');
+      };
+    } else {
+      $('dr-moons').style.display='none';
+    }
   }
 }
 function setWiki(name){

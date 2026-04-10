@@ -409,13 +409,78 @@ def get_all_planets(hip):
     ))
     return jsonify(planets)
 
+# ── MOONS ─────────────────────────────────────────────────────────────────────
+@app.route('/api/world/moons/by_planet/<int:pid>')
+def get_moons(pid):
+    db = get_db()
+    moons = rows(db.execute(
+        'SELECT * FROM wb_moons WHERE planet_id=? ORDER BY orbit_radii NULLS LAST', (pid,)
+    ))
+    return jsonify(moons)
+
+@app.route('/api/world/moons', methods=['POST'])
+def add_moon():
+    d = request.json
+    db = get_db()
+    cur = db.execute('''INSERT INTO wb_moons
+        (planet_id,nasa_moon_name,fictional_name,common_name,
+         orbit_radii,period_days,eccentricity,inclination,
+         radius_km,mass_desc,world_type,atmosphere,
+         significance,plot_notes,internal_notes)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+        (d['planet_id'], d.get('nasa_moon_name'), d.get('fictional_name',''),
+         d.get('common_name',''), d.get('orbit_radii'), d.get('period_days'),
+         d.get('eccentricity',0), d.get('inclination',0),
+         d.get('radius_km'), d.get('mass_desc',''),
+         d.get('world_type','Rocky'), d.get('atmosphere','None'),
+         d.get('significance','NONE'), d.get('plot_notes',''),
+         d.get('internal_notes','')))
+    db.commit()
+    return jsonify({'id': cur.lastrowid}), 201
+
+@app.route('/api/world/moons/<int:mid>', methods=['PUT'])
+def update_moon(mid):
+    d = request.json
+    db = get_db()
+    db.execute('''UPDATE wb_moons SET fictional_name=?,common_name=?,
+        orbit_radii=?,period_days=?,eccentricity=?,inclination=?,
+        radius_km=?,mass_desc=?,world_type=?,atmosphere=?,
+        significance=?,plot_notes=?,internal_notes=?,updated_at=?
+        WHERE id=?''',
+        (d.get('fictional_name',''), d.get('common_name',''),
+         d.get('orbit_radii'), d.get('period_days'),
+         d.get('eccentricity',0), d.get('inclination',0),
+         d.get('radius_km'), d.get('mass_desc',''),
+         d.get('world_type','Rocky'), d.get('atmosphere','None'),
+         d.get('significance','NONE'), d.get('plot_notes',''),
+         d.get('internal_notes',''), now(), mid))
+    db.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/world/moons/<int:mid>', methods=['DELETE'])
+def delete_moon(mid):
+    db = get_db()
+    db.execute('DELETE FROM wb_moons WHERE id=?', (mid,))
+    db.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/world/allmoons/<int:planet_id>')
+def get_all_moons(planet_id):
+    """All wb_moons for a planet — used by planet-system.html."""
+    db = get_db()
+    moons = rows(db.execute(
+        'SELECT * FROM wb_moons WHERE planet_id=? ORDER BY orbit_radii NULLS LAST',
+        (planet_id,)
+    ))
+    return jsonify(moons)
+
 # ── BACKUP ────────────────────────────────────────────────────────────────────
 @app.route('/api/world/backup')
 def backup():
     """Return the full DB as a JSON dump for easy backup."""
     db = get_db()
     tables = ['eras','civilizations','factions','wb_stars','star_era_control',
-              'wb_planets','planet_era_state','tags','tag_links']
+              'wb_planets','wb_moons','planet_era_state','tags','tag_links']
     dump = {}
     for t in tables:
         dump[t] = rows(db.execute(f'SELECT * FROM {t}'))
