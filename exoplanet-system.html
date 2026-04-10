@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exoplanet System Viewer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Orbitron:wght@400;700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0ede6;--ink:#0d1a2e;--ac:#0066cc;
+  --pn:rgba(10,20,38,0.91);--ptx:#c8d8f0;--pdm:#4a6080;
+  --fs:clamp(11px,1vw,16px);
+  --fs-sm:calc(var(--fs)*.78);--fs-md:var(--fs);
+  --fs-lg:calc(var(--fs)*1.25);--fs-xl:calc(var(--fs)*1.6);
+  --pw:clamp(170px,17vw,270px);
+}
+body{background:var(--bg);color:var(--ptx);font-family:'Space Mono',monospace;overflow:hidden;width:100vw;height:100vh}
+canvas{display:block;position:absolute;inset:0;width:100%!important;height:100%!important}
+#wrap{position:fixed;inset:0;background:var(--bg)}
+#hdr{position:fixed;top:0;left:0;right:0;padding:clamp(6px,.8vh,12px) 18px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(to bottom,rgba(240,237,230,.97),transparent);z-index:10;pointer-events:none}
+#hdr-left h1{font-family:'Orbitron',sans-serif;font-size:var(--fs-xl);font-weight:900;letter-spacing:.1em;color:var(--ink);opacity:.85}
+#hdr-left p{font-size:var(--fs-sm);color:#8899aa;letter-spacing:.05em;margin-top:2px}
+#back-btn{pointer-events:all;font-family:'Space Mono',monospace;font-size:var(--fs-sm);background:var(--pn);color:var(--ptx);border:1px solid rgba(100,150,255,.3);border-radius:4px;padding:5px 12px;cursor:pointer;transition:background .15s}
+#back-btn:hover{background:rgba(0,102,204,.4)}
+.pn{position:fixed;background:var(--pn);border:1px solid rgba(100,150,255,.18);border-radius:6px;padding:clamp(8px,.8vh,13px) clamp(9px,.9vw,13px);z-index:10;backdrop-filter:blur(10px)}
+.pn h4{font-family:'Orbitron',sans-serif;font-size:var(--fs-sm);letter-spacing:.12em;color:var(--pdm);margin-bottom:7px;text-transform:uppercase}
+#dp{top:clamp(65px,7vh,95px);right:18px;width:var(--pw);display:none;z-index:16}
+#dp h4{color:#88bbff;font-size:var(--fs-md);margin-bottom:8px;padding-right:18px}
+.dr{font-size:var(--fs-md);margin-bottom:4px;color:var(--ptx)}
+.dr .lb{color:var(--pdm);display:inline-block;min-width:90px}
+#cs{position:absolute;top:7px;right:9px;font-size:var(--fs-lg);color:var(--pdm);cursor:pointer;background:none;border:none}
+#cs:hover{color:#88bbff}
+#dwiki{color:#4499ff;text-decoration:none;font-size:var(--fs-md);border:1px solid rgba(68,153,255,.35);border-radius:3px;padding:3px 8px;display:inline-block;margin-top:6px;transition:background .15s}
+#dwiki:hover{background:rgba(68,153,255,.15)}
+#np{bottom:18px;right:18px;width:clamp(140px,13vw,210px)}
+.cr{font-size:var(--fs-md);color:var(--ptx);margin-bottom:3px}
+.cr b{color:#88bbff;font-weight:normal}
+#tp{position:fixed;pointer-events:none;z-index:30;display:none;background:var(--pn);border:1px solid rgba(100,150,255,.3);border-radius:4px;padding:7px 11px;max-width:230px;backdrop-filter:blur(8px)}
+#tp h3{font-family:'Orbitron',sans-serif;font-size:var(--fs-lg);color:#88bbff;margin-bottom:3px}
+#tp p{font-size:var(--fs-md);color:var(--ptx);line-height:1.6}
+#tp p b{color:#ffaa66;font-weight:normal}
+#ds{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);font-size:var(--fs-sm);color:#8899aa;pointer-events:none;z-index:10;letter-spacing:.05em}
+.wb-field{margin-bottom:8px}
+.wb-lbl{display:block;font-size:var(--fs-sm);color:var(--pdm);margin-bottom:3px;letter-spacing:.04em}
+.wb-inp{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(160,80,220,.25);
+  border-radius:4px;color:var(--ptx);padding:5px 8px;font-family:'Space Mono',monospace;
+  font-size:var(--fs-md);outline:none;transition:border-color .15s;box-sizing:border-box}
+.wb-inp:focus{border-color:rgba(160,80,220,.7)}
+.wb-inp option{background:#0d1a2e;color:var(--ptx)}
+.wb-btn-primary{font-family:'Space Mono',monospace;font-size:var(--fs-md);
+  background:rgba(160,80,220,.3);color:#dd99ff;border:1px solid rgba(160,80,220,.5);
+  border-radius:4px;padding:5px 12px;cursor:pointer;transition:background .15s}
+.wb-btn-primary:hover{background:rgba(160,80,220,.55)}
+.wb-tab.active{color:#cc88ff !important;border-bottom-color:#cc88ff !important}
+</style>
+<link rel="stylesheet" href="/static/css/worldbuilding.css">
+</head>
+<body>
+<div id="wrap"></div>
+<div id="hdr">
+  <div id="hdr-left">
+    <h1 id="sys-title">EXOPLANET SYSTEM</h1>
+    <p id="sys-sub">LOADING…</p>
+  </div>
+  <button id="back-btn" onclick="window.close()">✕ Close</button>
+</div>
+<div class="pn" id="dp">
+  <button id="cs">✕</button>
+  <h4 id="dn">—</h4>
+  <div class="dr"><span class="lb">Type      </span><span id="dtype"></span></div>
+  <div class="dr"><span class="lb">Orbit     </span><span id="dorb"></span></div>
+  <div class="dr"><span class="lb">Period    </span><span id="dper"></span></div>
+  <div class="dr"><span class="lb">Radius    </span><span id="drad"></span></div>
+  <div class="dr"><span class="lb">Mass      </span><span id="dmas"></span></div>
+  <div class="dr"><span class="lb">Eq. Temp  </span><span id="deqt"></span></div>
+  <div class="dr"><span class="lb">Discovery </span><span id="ddis"></span></div>
+  <div id="dr-wiki" style="display:none">
+    <a id="dwiki" href="#" target="_blank" rel="noopener">⬡ Wikipedia</a>
+  </div>
+  <div id="dr-wb" style="display:none;margin-top:6px">
+    <button id="btn-wb"
+      style="font-family:'Space Mono',monospace;font-size:var(--fs-md);
+             background:rgba(160,80,220,.22);color:#cc88ff;
+             border:1px solid rgba(160,80,220,.45);border-radius:3px;
+             padding:4px 10px;cursor:pointer;width:100%;letter-spacing:.05em">
+      ✎ Worldbuilding Notes
+    </button>
+  </div>
+</div>
+
+<!-- ═══ WORLDBUILDING PANEL ═══════════════════════════════════════════════ -->
+<!-- WB panel injected by worldbuilding-panel.js -->
+<div class="pn" id="tc" style="bottom:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:7px 14px;white-space:nowrap">
+  <button id="btn-play" style="font-family:'Space Mono',monospace;font-size:var(--fs-md);background:rgba(0,102,204,.55);color:var(--ptx);border:1px solid rgba(100,150,255,.4);border-radius:4px;padding:3px 11px;cursor:pointer;transition:background .15s">⏸</button>
+  <label style="font-size:var(--fs-sm);color:var(--pdm)">Speed</label>
+  <input type="range" id="speed-sl" min="0.1" max="50" step="0.1" value="5"
+    style="width:clamp(70px,7vw,120px);height:2px;-webkit-appearance:none;background:rgba(100,150,255,.2);outline:none;border-radius:2px;cursor:pointer">
+  <span id="speed-lbl" style="font-size:var(--fs-sm);color:#88bbff;min-width:60px">×5 d/s</span>
+</div>
+<div class="pn" id="np">
+  <h4>Navigation</h4>
+  <div class="cr"><b>Drag</b> — Orbit</div>
+  <div class="cr"><b>Right-drag</b> — Pan</div>
+  <div class="cr"><b>Scroll</b> — Zoom</div>
+  <div class="cr"><b>Click</b> — Planet info</div>
+</div>
+<div id="tp"><h3 id="tn"></h3><p id="tb"></p></div>
+<div id="ds" id="ds">EXOPLANET SYSTEM · NASA EXOPLANET ARCHIVE · KEPLER ORBITS</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/static/js/worldbuilding-panel.js"></script>
+<script src="/static/js/worldbuilding.js"></script>
+<script>
+'use strict';
+// $ defined by worldbuilding.js — no redeclaration needed
+// Inject WB panel and set position after DOM is ready
+document.addEventListener('DOMContentLoaded', ()=>{
+  wbInjectPanel();
+  const p=document.getElementById('wb-panel');
+  if(p){
+    p.style.cssText+=';position:fixed;top:clamp(70px,7vh,100px);'
+      +'right:calc(var(--pw) + 28px);width:clamp(300px,28vw,420px);'
+      +'max-height:calc(100vh - clamp(70px,7vh,100px) - 30px);'
+      +'background:var(--pn);border:1px solid rgba(160,80,220,.35);'
+      +'border-radius:8px;z-index:20;backdrop-filter:blur(12px);overflow:hidden;';
+  }
+});
+
+// ── READ URL PARAMS ──────────────────────────────────────────────────────────
+const params=new URLSearchParams(window.location.search);
+const TARGET_HOST = (params.get('host')||'').trim();
+const TARGET_HIP  = (params.get('hip') ||'').trim();
+const TARGET_HD   = (params.get('hd')  ||'').trim();
+const TARGET_DIST = parseFloat(params.get('dist')||'0');
+const TARGET_SPECT= (params.get('spect')||'').trim();
+
+// Map spectral type to star color
+function spectToColor(spect){
+  const s = (spect||'').trim().toUpperCase();
+  if(s.startsWith('O')) return 0x9bb0ff; // blue
+  if(s.startsWith('B')) return 0xaabfff; // blue-white
+  if(s.startsWith('A')) return 0xcad7ff; // white
+  if(s.startsWith('F')) return 0xf8f7ff; // yellow-white
+  if(s.startsWith('G')) return 0xffd97d; // yellow
+  if(s.startsWith('K')) return 0xffb347; // orange
+  if(s.startsWith('M')) return 0xff6347; // red
+  if(s.startsWith('D')) return 0xaaccff; // white dwarf
+  return 0xffd97d;                        // default yellow
+}
+
+// ── SCENE ────────────────────────────────────────────────────────────────────
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0xf0ede6);
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.0001,200);
+camera.position.set(0,3,6);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.setClearColor(0xf0ede6,1);
+$('wrap').appendChild(renderer.domElement);
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+
+// ── ORBIT CONTROLS ───────────────────────────────────────────────────────────
+const cam={sph:new THREE.Spherical(6,1.1,.5),target:new THREE.Vector3(),pan:new THREE.Vector3(),drag:false,right:false,last:{x:0,y:0},
+  update(){this.sph.phi=Math.max(.05,Math.min(Math.PI-.05,this.sph.phi));this.sph.radius=Math.max(.01,Math.min(50,this.sph.radius));camera.position.setFromSpherical(this.sph).add(this.target).add(this.pan);camera.lookAt(new THREE.Vector3().addVectors(this.target,this.pan));}
+};
+const cvs=renderer.domElement;
+cvs.addEventListener('contextmenu',e=>e.preventDefault());
+cvs.addEventListener('mousedown',e=>{cam.drag=true;cam.right=e.button===2;cam.last={x:e.clientX,y:e.clientY};});
+window.addEventListener('mouseup',()=>cam.drag=false);
+window.addEventListener('mousemove',e=>{
+  if(!cam.drag)return;
+  const dx=e.clientX-cam.last.x,dy=e.clientY-cam.last.y;
+  if(cam.right){const sp=cam.sph.radius*.0012,r=new THREE.Vector3(),u=new THREE.Vector3(0,1,0);r.crossVectors(camera.getWorldDirection(new THREE.Vector3()),u).normalize();cam.pan.addScaledVector(r,-dx*sp).addScaledVector(u,dy*sp);}
+  else{cam.sph.theta-=dx*.005;cam.sph.phi-=dy*.005;}
+  cam.last={x:e.clientX,y:e.clientY};
+});
+cvs.addEventListener('wheel',e=>{e.preventDefault();cam.sph.radius*=1+e.deltaY*.001;},{passive:false});
+
+// ── LABEL SYSTEM ─────────────────────────────────────────────────────────────
+const LABEL_PX_H=15,HALO_COLOR='rgba(240,237,230,0.92)',HALO_W=5;
+function makeLabel(txt,hexCol){
+  const canvH=LABEL_PX_H*3;
+  const c=document.createElement('canvas'),ctx=c.getContext('2d');
+  const fs=Math.round(canvH*.78);
+  ctx.font=`700 ${fs}px "Space Mono",monospace`;
+  const tw=Math.ceil(ctx.measureText(txt).width)+HALO_W*2+10;
+  c.width=tw;c.height=canvH;
+  ctx.font=`700 ${fs}px "Space Mono",monospace`;
+  ctx.lineWidth=HALO_W*2;ctx.lineJoin='round';ctx.strokeStyle=HALO_COLOR;ctx.strokeText(txt,HALO_W+5,fs);
+  const ri=parseInt(hexCol.slice(1,3),16)/255,gi=parseInt(hexCol.slice(3,5),16)/255,bi=parseInt(hexCol.slice(5,7),16)/255;
+  ctx.fillStyle=`rgb(${Math.round(ri*.3*255)},${Math.round(gi*.3*255)},${Math.round(Math.min(bi*.3+.1,1)*255)})`;
+  ctx.fillText(txt,HALO_W+5,fs);
+  const tex=new THREE.CanvasTexture(c);tex.minFilter=tex.magFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,opacity:.95,depthWrite:false,depthTest:false,blending:THREE.NormalBlending}));
+  sp.renderOrder=999;sp.userData.aspect=tw/canvH;sp.scale.set(1,1,1);return sp;
+}
+const _ndc=new THREE.Vector3(),_off=new THREE.Vector3();
+function updateLabelScale(sprite,wx,wy,wz){
+  const H=renderer.domElement.clientHeight||innerHeight,W=renderer.domElement.clientWidth||innerWidth;
+  _ndc.set(wx,wy,wz).project(camera);const depth=_ndc.z;
+  const ndcH=(LABEL_PX_H/H)*2;
+  _off.set(_ndc.x,_ndc.y+ndcH,depth).unproject(camera);
+  const wH=_off.distanceTo(new THREE.Vector3(wx,wy,wz));
+  const asp=sprite.userData.aspect||4;sprite.scale.set(wH*asp,wH,1);
+  const ndcX=(8/W)*2;_off.set(_ndc.x+ndcX,_ndc.y,depth).unproject(camera);
+  sprite.position.set(_off.x+wH*asp*.5,_off.y+wH*.5,_off.z);
+}
+
+// ── PLANET TYPE CLASSIFIER ───────────────────────────────────────────────────
+function planetType(r_earth, m_earth){
+  const r=r_earth||0,m=m_earth||0;
+  if(r>10||m>300) return {label:'Gas Giant',  color:'#c8924a'};
+  if(r>3.5||m>15) return {label:'Neptune-like',color:'#4488bb'};
+  if(r>1.7||m>8)  return {label:'Super-Earth', color:'#44aa66'};
+  if(r>0  ||m>0)  return {label:'Earth-sized',  color:'#2266aa'};
+  return                  {label:'Unknown',      color:'#888888'};
+}
+
+// ── ORBIT PATH ───────────────────────────────────────────────────────────────
+function makeOrbitLine(a,e,color,inc_deg,argp_deg){
+  const inc=(inc_deg||0)*Math.PI/180;
+  const argp=(argp_deg||0)*Math.PI/180;
+  const pts=[];
+  for(let i=0;i<=256;i++){
+    const f=i/256*Math.PI*2;
+    const r=a*(1-e*e)/(1+e*Math.cos(f));
+    const xOrb=r*Math.cos(f+argp);
+    const yOrb=r*Math.sin(f+argp);
+    pts.push(new THREE.Vector3(xOrb, yOrb*Math.sin(inc), yOrb*Math.cos(inc)));
+  }
+  const mat=new THREE.LineBasicMaterial({color:parseInt(color.slice(1),16),transparent:true,opacity:.28});
+  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),mat);
+}
+
+// ── PLANET MESH ───────────────────────────────────────────────────────────────
+function makePlanetMesh(r_vis, color){
+  const c=new THREE.Color(color);
+  const dark=new THREE.Color(c.r*.28,c.g*.28,c.b*.28+.04);
+  return new THREE.Mesh(
+    new THREE.SphereGeometry(r_vis,20,14),
+    new THREE.MeshPhongMaterial({color:dark,emissive:dark.clone().multiplyScalar(.35),specular:new THREE.Color(.08,.08,.12),shininess:25})
+  );
+}
+
+// ── AMBIENT + STAR LIGHT ─────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xf0ede6,.4));
+const starLight=new THREE.PointLight(0xffeedd,1.5,30);scene.add(starLight);
+
+// ── LOAD EXOPLANET DATA ───────────────────────────────────────────────────────
+let planetObjects=[];
+let simDays=0;
+let playing=true;
+let simSpeed=5; // sim-days per real second
+
+// Wire up controls after DOM is ready
+window.addEventListener('DOMContentLoaded',()=>{
+  const btn=$('btn-play');
+  btn.addEventListener('click',()=>{
+    playing=!playing;
+    btn.textContent=playing?'⏸':'▶';
+    btn.style.background=playing?'rgba(0,102,204,.55)':'rgba(0,102,204,.25)';
+  });
+  $('speed-sl').addEventListener('input',e=>{
+    simSpeed=+e.target.value;
+    $('speed-lbl').textContent='×'+simSpeed.toFixed(simSpeed<1?1:0)+' d/s';
+  });
+});
+
+async function loadSystem(){
+  let csv;
+  try{
+    const r=await fetch('/static/data/exoplanets.csv');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    csv=await r.text();
+    // Share with worldbuilding.js so wbGetNasaPlanets works in the planet tab
+    if(typeof exoCsvText !== 'undefined') exoCsvText = csv;
+    else window.exoCsvText = csv;
+  }catch(e){
+    $('sys-sub').textContent='CATALOG NOT FOUND — run: sudo bash update-exoplanets.sh';
+    $('sys-sub').style.color='#cc6600';
+    buildFallback();
+    return;
+  }
+
+  const lines=csv.split('\n');
+  const cols=lines[0].split(',').map(c=>c.trim().replace(/"/g,'').toLowerCase());
+  function ci(n){return cols.indexOf(n);}
+
+  const iName=ci('pl_name'),iLet=ci('pl_letter'),iHost=ci('hostname');
+  const iHip=ci('hip_name'),iHd=ci('hd_name'),iDist=ci('sy_dist');
+  const iA=ci('pl_orbsmax'),iPer=ci('pl_orbper'),iEcc=ci('pl_orbeccen');
+  const iInc=ci('pl_orbincl'),iArgp=ci('pl_orblper');
+  const iRad=ci('pl_rade'),iMas=ci('pl_bmasse'),iEqt=ci('pl_eqt');
+  const iDm=ci('discoverymethod'),iDy=ci('disc_year');
+
+  const pf=s=>parseFloat((s||'').replace(/"/g,'').trim())||0;
+  const ps=s=>(s||'').replace(/"/g,'').trim();
+
+  // Find planets for this system.
+  // Priority: HIP number match → HD number match → hostname exact → hostname case-insensitive
+  // HIP/HD are unambiguous catalog IDs — they work regardless of how
+  // NASA abbreviates the hostname vs how HYG spells the full name.
+  const systemPlanets=[];
+  for(let i=1;i<lines.length;i++){
+    const p=lines[i].split(',');
+    if(p.length<5) continue;
+    const host=ps(p[iHost]);
+    const hip=ps(p[iHip]).replace(/^HIP\s*/i,'').trim();
+    const hd =ps(p[iHd ]).replace(/^HD\s*/i, '').trim();
+
+    const match =
+      (TARGET_HIP  && hip && hip===TARGET_HIP)  ||   // HIP number match (best)
+      (TARGET_HD   && hd  && hd ===TARGET_HD)   ||   // HD number match
+      (TARGET_HOST && host===TARGET_HOST)        ||   // exact hostname
+      (TARGET_HOST && host.toLowerCase()===TARGET_HOST.toLowerCase());
+    if(!match) continue;
+
+    systemPlanets.push({
+      name:  ps(p[iName]),
+      letter:ps(p[iLet]),
+      host:  host,
+      a:     pf(p[iA])  || 0.1,
+      per:   pf(p[iPer]) || 30,
+      ecc:   Math.min(pf(p[iEcc]),0.99),
+      inc:   pf(p[iInc])||0,
+      argp:  pf(p[iArgp])||0,
+      r_e:   pf(p[iRad]),
+      m_e:   pf(p[iMas]),
+      eqt:   pf(p[iEqt]),
+      dm:    ps(p[iDm]),
+      dy:    ps(p[iDy]),
+      dist:  pf(p[iDist]),
+      source:'nasa',
+    });
+  }
+
+  // Merge user-created planets from worldbuilding API
+  if(TARGET_HIP){
+    try{
+      const apiR=await fetch('/api/world/allplanets/'+TARGET_HIP);
+      if(apiR.ok){
+        const ct=apiR.headers.get('content-type')||'';
+        if(ct.includes('application/json')){
+          const userPlanets=await apiR.json();
+          const nasaNames=new Set(systemPlanets.map(p=>p.name));
+          for(const up of userPlanets){
+            if(up.nasa_pl_name&&nasaNames.has(up.nasa_pl_name)){
+              const ex=systemPlanets.find(p=>p.name===up.nasa_pl_name);
+              if(ex){
+                if(up.fictional_name) ex.display_name=up.fictional_name;
+                if(up.eccentricity)   ex.ecc=Math.min(up.eccentricity,0.99);
+                if(up.inclination)    ex.inc=up.inclination;
+                if(up.arg_peri)       ex.argp=up.arg_peri;
+                if(up.radius_earth)   ex.r_e=up.radius_earth;
+                if(up.mass_earth)     ex.m_e=up.mass_earth;
+              }
+              continue;
+            }
+            if(up.orbit_au){
+              systemPlanets.push({
+                name: up.fictional_name||up.common_name||'Planet '+up.id,
+                letter:'',host:TARGET_HOST,
+                a:up.orbit_au,
+                per:up.period_days||Math.sqrt(Math.pow(up.orbit_au,3))*365.25,
+                ecc:Math.min(up.eccentricity||0,0.99),
+                inc:up.inclination||0,argp:up.arg_peri||0,
+                r_e:up.radius_earth||0, m_e:up.mass_earth||0, eqt:0,
+                dm:'User Created',dy:'',dist:0,source:'user',
+              });
+            }
+          }
+        }
+      }
+    }catch(e){/* API not running */}
+  }
+
+  if(!systemPlanets.length){
+    $('sys-sub').textContent='No data found for: '+TARGET_HOST;
+    buildFallback();
+    return;
+  }
+
+  buildScene(systemPlanets);
+}
+
+function buildFallback(){
+  // Show just the star with an error message — scene still renders
+  buildStar('Unknown',0);
+}
+
+function buildStar(name, starR){
+  const col = spectToColor(TARGET_SPECT);
+  const starMesh=new THREE.Mesh(
+    new THREE.SphereGeometry(starR,32,22),
+    new THREE.MeshBasicMaterial({color:col})
+  );
+  scene.add(starMesh);
+  // Hit zone: 2.5× visual radius so the star is easy to click
+  const hz=new THREE.Mesh(
+    new THREE.SphereGeometry(Math.max(starR*2.5, 0.025),8,6),
+    new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false})
+  );
+  starMesh.add(hz);
+  // Label color matches star color
+  const hexCol = '#'+col.toString(16).padStart(6,'0');
+  const lbl=makeLabel(name, hexCol);
+  scene.add(lbl);
+  return{mesh:starMesh,label:lbl};
+}
+
+function buildScene(planets){
+  const hostName=planets[0].host;
+  const dist_pc=planets[0].dist;
+  const dist_ly=(dist_pc*3.26156).toFixed(1);
+
+  $('sys-title').textContent=hostName.toUpperCase();
+  $('sys-sub').textContent=`${planets.length} CONFIRMED PLANET${planets.length>1?'S':''} · ${dist_ly} LY · ORBITS TRUE SCALE · BODIES MAGNIFIED`;
+
+  // Sort by semi-major axis first — we need innermost orbit for scaling
+  planets.sort((a,b)=>a.a-b.a);
+
+  // ── Adaptive body scale ──────────────────────────────────────────────────
+  // Physical radii in AU
+  const SUN_R_AU   = 0.00465;
+  const EARTH_R_AU = 0.0000426;
+  const MIN_PLANET_VIS = 0.006;  // minimum planet sphere radius (scene units)
+  const MAX_STAR_VIS   = 0.06;
+  const MIN_STAR_VIS   = 0.008;
+
+  // Star visual radius = fraction of the innermost orbit, clamped
+  const innerOrbit = planets[0].a || 0.05;
+  const starVis    = Math.min(Math.max(innerOrbit * 0.18, MIN_STAR_VIS), MAX_STAR_VIS);
+  const bodyScale  = starVis / SUN_R_AU;  // same multiplier applied to all bodies
+
+  // Planet visual radius: physical AU × bodyScale, floored at MIN_PLANET_VIS
+  function planetVis(r_earth){
+    if(!r_earth || r_earth<=0) return MIN_PLANET_VIS;
+    return Math.max(r_earth * EARTH_R_AU * bodyScale, MIN_PLANET_VIS);
+  }
+
+  const starObj=buildStar(hostName, starVis);
+
+  // Camera: fit outermost orbit with generous padding
+  const maxA=planets[planets.length-1].a;
+  cam.sph.radius=Math.max(maxA*2.5, starVis*8);
+
+  // Ecliptic disc
+  const disc=new THREE.Mesh(
+    new THREE.CircleGeometry(maxA*1.15,64),
+    new THREE.MeshBasicMaterial({color:0xc8c4bc,transparent:true,opacity:.05,side:THREE.DoubleSide,depthWrite:false})
+  );
+  disc.rotation.x=Math.PI/2;
+  scene.add(disc);
+
+  // Build planets
+  planets.forEach((pd)=>{
+    const {label:typeLabel, color}=planetType(pd.r_e, pd.m_e);
+    const r_vis=planetVis(pd.r_e);
+
+    const orbitLine=makeOrbitLine(pd.a, pd.ecc, color, pd.inc||0, pd.argp||0);
+    scene.add(orbitLine);
+
+    const mesh=makePlanetMesh(r_vis, color);
+    scene.add(mesh);
+
+    const lblText = pd.letter || pd.display_name || pd.name || '?';
+    const lbl=makeLabel(lblText, color);
+    scene.add(lbl);
+
+    planetObjects.push({data:pd, mesh, label:lbl, typeLabel, color, r_vis});
+  });
+
+  // Raycasting
+  pickables.push({mesh:starObj.mesh, isHost:true, name:hostName, hostData:{dist_ly, dist_pc, planets:planets.length}});
+  pickables.push({mesh:starObj.mesh.children[0], isHost:true, name:hostName, hostData:{dist_ly, dist_pc, planets:planets.length}});
+  planetObjects.forEach(po=>pickables.push({mesh:po.mesh, isPlanet:true, data:po.data, typeLabel:po.typeLabel}));
+
+  window._starLbl=starObj.label;
+}
+
+// ── ORBITAL MECHANICS ─────────────────────────────────────────────────────────
+function keplerPos(a,e,inc_deg,argp_deg,period,days){
+  const M=(days/period*Math.PI*2)%(Math.PI*2);
+  let E=M;for(let i=0;i<10;i++)E=M+e*Math.sin(E);
+  const f=2*Math.atan2(Math.sqrt(1+e)*Math.sin(E/2),Math.sqrt(1-e)*Math.cos(E/2));
+  const r=a*(1-e*Math.cos(E));
+  const argp=(argp_deg||0)*Math.PI/180;
+  const inc=(inc_deg||0)*Math.PI/180;
+  const xOrb=r*Math.cos(f+argp);
+  const yOrb=r*Math.sin(f+argp);
+  return new THREE.Vector3(xOrb, yOrb*Math.sin(inc), yOrb*Math.cos(inc));
+}
+
+// ── PICKING ───────────────────────────────────────────────────────────────────
+const ray=new THREE.Raycaster();
+const mv2=new THREE.Vector2();
+const pickables=[];
+
+function pick(mx,my){
+  mv2.set((mx/innerWidth)*2-1,-(my/innerHeight)*2+1);
+  ray.setFromCamera(mv2,camera);
+  const hits=ray.intersectObjects(pickables.map(p=>p.mesh),false);
+  if(!hits.length)return null;
+  return pickables.find(p=>p.mesh===hits[0].object)||null;
+}
+
+const tp=$('tp');
+cvs.addEventListener('mousemove',e=>{
+  if(cam.drag){tp.style.display='none';return;}
+  const h=pick(e.clientX,e.clientY);
+  if(h){
+    tp.style.display='block';tp.style.left=(e.clientX+14)+'px';tp.style.top=(e.clientY-10)+'px';
+    if(h.isHost){
+      $('tn').textContent=h.name;
+      $('tb').innerHTML=`Host star · ${h.hostData.dist_ly} ly · <b>${h.hostData.planets}</b> planet${h.hostData.planets>1?'s':''}`;
+    } else if(h.isPlanet){
+      const d=h.data;
+      $('tn').textContent=d.name;
+      $('tb').innerHTML=`${h.typeLabel}<br>Orbit: <b>${d.a.toFixed(3)} AU</b> · Period: <b>${d.per>365?(d.per/365.25).toFixed(2)+'yr':d.per.toFixed(1)+'d'}</b>`;
+    }
+    cvs.style.cursor='pointer';
+  }else{tp.style.display='none';cvs.style.cursor='default';}
+});
+
+cvs.addEventListener('click',e=>{
+  const h=pick(e.clientX,e.clientY);
+  if(!h)return;
+  openDetail(h);
+});
+$('cs').addEventListener('click',()=>$('dp').style.display='none');
+
+function openDetail(h){
+  $('dp').style.display='block';
+  window._wbCtx=h;
+  if(h.isHost){
+    $('dn').textContent=h.name;
+    $('dtype').textContent='Host Star';
+    $('dorb').textContent=h.hostData.dist_ly+' ly from Sol';
+    $('dper').textContent='—';
+    $('drad').textContent='—';
+    $('dmas').textContent='—';
+    $('deqt').textContent='—';
+    $('ddis').textContent=h.hostData.planets+' known planet(s)';
+    setWiki(h.name);
+    $('dr-wb').style.display='';
+    $('btn-wb').textContent='✎ System Notes — '+h.name;
+    $('btn-wb').onclick=()=>{
+      const starObj={name:h.name,hip:parseInt(TARGET_HIP)||null,
+                     hd:parseInt(TARGET_HD)||null,
+                     dist_ly:parseFloat(h.hostData.dist_ly)||0};
+      wbOpenForStar(starObj);
+    };
+  } else {
+    const d=h.data;
+    const displayName=d.display_name||d.name;
+    if(d.display_name&&d.name!==d.display_name){
+      $('dn').innerHTML=`${d.display_name} <span style="color:var(--pdm);font-size:var(--fs-sm);font-weight:normal">(${d.name})</span>`;
+    }else{$('dn').textContent=displayName;}
+    $('dtype').innerHTML=h.typeLabel+(d.source==='user'?' · <span style="color:#cc88ff">✎ User Created</span>':'');
+    $('dorb').textContent=d.a.toFixed(4)+' AU';
+    $('dper').textContent=d.per>365?(d.per/365.25).toFixed(3)+' yr':d.per.toFixed(2)+' d';
+    $('drad').textContent=d.r_e>0?d.r_e.toFixed(2)+' R⊕':'—';
+    $('dmas').textContent=d.m_e>0?d.m_e.toFixed(2)+' M⊕':'—';
+    $('deqt').textContent=d.eqt>0?d.eqt.toFixed(0)+' K':'—';
+    $('ddis').textContent=(d.dm||'—')+(d.dy?' ('+d.dy+')':'');
+    setWiki(d.source==='user'?null:d.name);
+    $('dr-wb').style.display='';
+    $('btn-wb').textContent='✎ Notes — '+(d.display_name||d.name);
+    $('btn-wb').onclick=async()=>{
+      const starObj={name:TARGET_HOST,hip:parseInt(TARGET_HIP)||null,
+                     hd:parseInt(TARGET_HD)||null};
+      await wbOpenForStar(starObj);
+      const t=document.querySelector('.wb-tab[data-tab="wb-tab-planets"]');
+      if(t) t.click();
+    };
+  }
+}
+
+function setWiki(name){
+  if(!name){$('dr-wiki').style.display='none';return;}
+  // Exoplanet Wikipedia URLs: "Proxima_Centauri_b", "51_Pegasi_b" etc.
+  const slug=name.trim().replace(/\s+/g,'_').replace(/'/g,'%27');
+  $('dwiki').href='https://en.wikipedia.org/wiki/'+slug;
+  $('dr-wiki').style.display='';
+}
+
+// ── RENDER LOOP ───────────────────────────────────────────────────────────────
+// Speed: 1 real second = 1 orbital period of innermost planet
+// (so all planets animate at a watchable rate)
+let lastT=performance.now();
+function animate(){
+  requestAnimationFrame(animate);
+  const now=performance.now();
+  const dt=(now-lastT)/1000;lastT=now;
+  if(playing) simDays+=dt*simSpeed;
+
+  cam.update();
+
+  const t=performance.now()*.001;
+  // Star pulse
+  if(scene.children.length>0){
+    const star=scene.children.find(c=>c.isMesh&&c.geometry&&c.geometry.type==='SphereGeometry'&&!c.userData.isPlanet);
+    if(star) star.scale.setScalar(1+.05*Math.sin(t*1.1));
+  }
+
+  // Update planet positions
+  planetObjects.forEach(po=>{
+    const pos=keplerPos(po.data.a,po.data.ecc,po.data.inc||0,po.data.argp||0,po.data.per,simDays);
+    po.mesh.position.copy(pos);
+    if(playing) po.mesh.rotation.y+=dt*.5;
+    updateLabelScale(po.label,pos.x,pos.y,pos.z);
+  });
+
+  // Update star label
+  if(window._starLbl) updateLabelScale(window._starLbl,0,0,0);
+
+  renderer.render(scene,camera);
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+loadSystem().then(()=>animate());
+
+// ══════════════════════════════════════════════════════════════════════════
+//  WORLDBUILDING PANEL — exoplanet-system.html
+// ══════════════════════════════════════════════════════════════════════════
+// WB logic → /static/js/worldbuilding.js
+</script>
+</body>
+</html>

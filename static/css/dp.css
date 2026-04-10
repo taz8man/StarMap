@@ -1,0 +1,17 @@
+/* Base DP panel */
+#dp {
+  position: absolute;
+  right: 18px;
+  display: none;
+  z-index: 16;
+  width: var(--dp-width, var(--pw));
+  top: var(--dp-top, 80px);
+}
+
+/* Header */
+#dp h4 {
+  color: #88bbff;
+  font-size: var(--fs-md);
+  margin-bottom: 8px;
+  padding-right: var(--dp-header-pad, 18px);
+}
