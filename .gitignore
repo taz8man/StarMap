@@ -1,6 +1,37 @@
+# === DATABASE ===
+# Worldbuilding data lives here — never overwrite with a reinstall
 *.db
-*.pyc
+*.db-shm
+*.db-wal
+
+# === PYTHON CACHE ===
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# === ROLLBACK TARBALLS ===
+# You keep these locally but they don't belong in the repo
 *.tar.gz
-venv/
+*.tar.bz2
+*.zip
+
+# === LOGS & TEMP FILES ===
 *.log
+*.tmp
+*.swp
+*.bak
+
+# === JUNK FILES ===
+# Already in your static/css folder — clean this up too
+"New Text Document.txt"
+static/css/New Text Document.txt
+
+# === OS FILES ===
+.DS_Store
+Thumbs.db
+
+# === EDITOR FILES ===
+.vscode/
+.idea/
+*.kate-swp
