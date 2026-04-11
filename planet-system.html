@@ -7,7 +7,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#f0ede6;--pn:rgba(10,20,38,0.91);--ptx:#c8d8f0;--pdm:#4a6080;
+  --bg:#f0ede6;--pn:rgba(245,243,240,0.72);--ptx:#1a1a1a;--pdm:#6a6a6a;
   --fs:clamp(11px,1.1vw,14px);--fs-sm:calc(var(--fs)*.85);
   --fs-md:var(--fs);--fs-lg:calc(var(--fs)*1.2);
   --pw:clamp(180px,18vw,280px);
@@ -21,41 +21,38 @@ body{background:var(--bg);color:var(--ptx);font-family:'Space Mono',monospace;ov
 #hdr p{font-size:var(--fs-sm);color:#667;letter-spacing:.07em;margin-top:2px}
 #sys-title{color:#334}
 #sys-sub{font-size:var(--fs-sm);color:#888;letter-spacing:.06em;margin-top:2px}
-#back-btn{pointer-events:all;font-family:'Space Mono',monospace;font-size:var(--fs-sm);
-  background:var(--pn);color:var(--ptx);border:1px solid rgba(100,150,255,.3);
-  border-radius:4px;padding:5px 12px;cursor:pointer;transition:background .15s}
-#back-btn:hover{background:rgba(0,30,60,.95)}
-.pn{position:fixed;background:var(--pn);border:1px solid rgba(100,150,255,.18);
-  border-radius:6px;padding:clamp(8px,.8vh,13px) clamp(9px,.9vw,13px);z-index:10;backdrop-filter:blur(10px)}
+#back-btn{pointer-events:all;font-family:'Space Mono',monospace;font-size:var(--fs-sm);background:rgba(245,243,240,0.80);color:#1a1a1a;border:1.5px solid rgba(0,0,0,0.12);border-radius:10px;box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 2px 8px rgba(0,0,0,.08);padding:6px 16px;cursor:pointer;transition:background .15s,box-shadow .15s}
+#back-btn:hover{background:rgba(245,243,240,0.96);box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 3px 12px rgba(0,0,0,.13)}
+.pn{position:fixed;background:rgba(245,243,240,0.72);backdrop-filter:blur(28px) saturate(1.6);-webkit-backdrop-filter:blur(28px) saturate(1.6);border:none;border-radius:18px;padding:clamp(10px,1.2vh,16px) clamp(10px,1vw,16px);z-index:10;box-shadow:0 1px 0 rgba(255,255,255,0.90) inset,0 -1px 0 rgba(0,0,0,0.06) inset,1px 0 0 rgba(255,255,255,0.60) inset,-1px 0 0 rgba(255,255,255,0.30) inset,0 12px 48px rgba(0,0,0,0.10),0 2px 8px rgba(0,0,0,0.06)}
 .pn h4{font-family:'Orbitron',sans-serif;font-size:var(--fs-sm);letter-spacing:.12em;color:var(--pdm);margin-bottom:7px;text-transform:uppercase}
 #dp{top:clamp(65px,7vh,95px);right:18px;width:var(--pw);display:none;z-index:16}
-#dp h4{color:#88bbff;font-size:var(--fs-md);margin-bottom:8px;padding-right:18px}
+#dp h4{color:#1a1a1a;font-size:var(--fs-md);margin-bottom:8px;padding-right:18px}
 .dr{font-size:var(--fs-md);margin-bottom:4px;color:var(--ptx)}
-.dr .lb{color:var(--pdm);display:inline-block;min-width:90px}
-#cs{position:absolute;top:7px;right:9px;font-size:var(--fs-lg);color:var(--pdm);cursor:pointer;background:none;border:none}
-#cs:hover{color:#88bbff}
+.dr .lb{color:#6a6a6a;display:inline-block;min-width:90px}
+#cs{position:absolute;top:7px;right:9px;font-size:var(--fs-lg);color:#6a6a6a;cursor:pointer;background:none;border:none}
+#cs:hover{color:#1a1a1a}
 #dr-wiki{margin-top:4px}
-#dwiki{display:inline-block;font-size:var(--fs-sm);color:#4499ff;text-decoration:none;
-  padding:3px 8px;border:1px solid rgba(68,153,255,.3);border-radius:3px;transition:background .15s}
-#dwiki:hover{background:rgba(68,153,255,.15)}
+/* #dwiki styled via .dp-btn.dp-btn-wiki */
 #dr-wb{margin-top:6px}
 
 /* planet rows / moon rows toggle */
 #dp-planet-rows .dr, #dp-moon-rows .dr{margin-bottom:4px}
 
 #tp{position:fixed;pointer-events:none;z-index:30;display:none;background:var(--pn);
-  border:1px solid rgba(100,150,255,.3);border-radius:4px;padding:7px 11px;
+  border:none;border-radius:12px;box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 8px 24px rgba(0,0,0,.10);padding:7px 11px;
   max-width:230px;backdrop-filter:blur(8px)}
 #tp h3{font-family:'Orbitron',sans-serif;font-size:var(--fs-lg);color:#88bbff;margin-bottom:3px}
 #tp p{font-size:var(--fs-md);color:var(--ptx);line-height:1.6}
 #ds{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);
   font-size:var(--fs-sm);color:#8899aa;pointer-events:none;z-index:10;letter-spacing:.05em}
 /* playback */
-#tc{bottom:30px;left:50%;transform:translateX(-50%);display:flex;align-items:center;
+#tc{bottom:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;
   gap:10px;padding:7px 14px;white-space:nowrap}
-#btn-play{font-family:'Space Mono',monospace;font-size:var(--fs-md);background:rgba(0,102,204,.55);
-  color:var(--ptx);border:1px solid rgba(100,150,255,.4);border-radius:4px;
-  padding:3px 11px;cursor:pointer;transition:background .15s}
+#btn-play{font-family:'Space Mono',monospace;font-size:var(--fs-md);
+  background:rgba(0,102,204,.55);color:var(--ptx);
+  border:1px solid rgba(100,150,255,.4);border-radius:10px;
+  padding:5px 14px;cursor:pointer;transition:background .15s}
+#btn-play:hover{background:rgba(0,102,204,.75)}
 #speed-sl{width:clamp(70px,7vw,120px);height:2px;-webkit-appearance:none;
   background:rgba(100,150,255,.2);outline:none;border-radius:2px;cursor:pointer}
 #speed-lbl{font-size:var(--fs-sm);color:#88bbff;min-width:60px}
@@ -70,7 +67,7 @@ body{background:var(--bg);color:var(--ptx);font-family:'Space Mono',monospace;ov
     <h1 id="sys-title">MOON SYSTEM</h1>
     <p id="sys-sub">Loading…</p>
   </div>
-  <button id="back-btn" onclick="window.history.length>1?history.back():window.close()">← Back</button>
+  <button id="back-btn" onclick="window.history.length>1?history.back():window.close()">✕ Close</button>
 </div>
 
 <div class="pn" id="dp">
@@ -96,16 +93,10 @@ body{background:var(--bg);color:var(--ptx);font-family:'Space Mono',monospace;ov
   </div>
 
   <div id="dr-wiki" style="display:none;margin-top:4px">
-    <a id="dwiki" href="#" target="_blank" rel="noopener">⬡ Wikipedia</a>
+    <a id="dwiki" href="#" target="_blank" rel="noopener" class="dp-btn dp-btn-wiki">⬡ Wikipedia</a>
   </div>
   <div id="dr-wb" style="display:none;margin-top:6px">
-    <button id="btn-wb"
-      style="font-family:'Space Mono',monospace;font-size:var(--fs-md);
-             background:rgba(160,80,220,.22);color:#cc88ff;
-             border:1px solid rgba(160,80,220,.45);border-radius:3px;
-             padding:4px 10px;cursor:pointer;width:100%;letter-spacing:.05em">
-      ✎ Worldbuilding Notes
-    </button>
+    <button id="btn-wb" class="dp-btn dp-btn-wb">✎ Notes</button>
   </div>
 </div>
 
@@ -606,7 +597,7 @@ function openDetail(h){
     } else {$('dr-wiki').style.display='none';}
     // WB button
     $('dr-wb').style.display='';
-    $('btn-wb').textContent='✎ Notes — '+(d.display_name||d.name);
+    $('btn-wb').textContent='✎ Notes';
     $('btn-wb').onclick=async()=>{
       const starObj={
         name:    TARGET_STAR_NAME,

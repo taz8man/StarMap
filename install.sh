@@ -1,24 +1,31 @@
 #!/bin/bash
 # ============================================================================
-#  Galactic Neighborhood Star Map — Raspberry Pi Installer v2
+#  Galactic Neighborhood Star Map — Raspberry Pi Installer v1.0
 #  Tested on: Raspberry Pi OS Bookworm (64-bit) & Bullseye (32/64-bit)
-#  Run as: bash install.sh
+#  Run as: sudo bash install.sh
 # ============================================================================
 set -e
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 
-header(){ echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; echo -e "${BOLD}${CYAN}  $1${NC}"; echo -e "${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; }
+TOTAL_STEPS=7
+
+step()  { echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; \
+          echo -e "${BOLD}${CYAN}  Step $1 / $TOTAL_STEPS — $2${NC}"; \
+          echo -e "${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; }
 ok()    { echo -e "  ${GREEN}✓${NC} $1"; }
 info()  { echo -e "  ${YELLOW}→${NC} $1"; }
 fail()  { echo -e "  ${RED}✗ ERROR:${NC} $1"; exit 1; }
 warn()  { echo -e "  ${YELLOW}⚠${NC}  $1"; }
+header(){ echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; \
+          echo -e "${BOLD}${CYAN}  $1${NC}"; \
+          echo -e "${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; }
 
 INSTALL_DIR="/var/www/starmap"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-header "GALACTIC NEIGHBORHOOD — RASPBERRY PI INSTALLER v2"
+header "GALACTIC NEIGHBORHOOD STAR MAP — INSTALLER v1.0"
 echo -e "  Install directory : ${BOLD}$INSTALL_DIR${NC}"
 echo -e "  Source directory  : ${BOLD}$SCRIPT_DIR${NC}"
 
@@ -36,18 +43,22 @@ fi
 ok "Internet connection confirmed"
 
 # ── Step 1: nginx ─────────────────────────────────────────────────────────────
-header "Step 1 / 5 — Install nginx"
+step 1 "Install nginx & dependencies"
 apt-get update -qq
-apt-get install -y -qq nginx curl
-ok "nginx installed"
+apt-get install -y -qq nginx curl python3 python3-pip
+ok "nginx + python3 installed"
 
 # Create directory structure
 mkdir -p "$INSTALL_DIR/static/js"
+mkdir -p "$INSTALL_DIR/static/css"
 mkdir -p "$INSTALL_DIR/static/fonts"
 mkdir -p "$INSTALL_DIR/static/data"
+mkdir -p "$INSTALL_DIR/api"
+mkdir -p "$INSTALL_DIR/data"
+ok "Directory structure created"
 
 # ── Step 2: Three.js ─────────────────────────────────────────────────────────
-header "Step 2 / 5 — Download Three.js r128"
+step 2 "Download Three.js r128"
 THREEJS_URL="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
 info "Downloading Three.js (~600 KB)..."
 if curl -fsSL --retry 3 --retry-delay 2 "$THREEJS_URL" \
@@ -59,44 +70,32 @@ else
 fi
 
 # ── Step 3: Web Fonts ─────────────────────────────────────────────────────────
-header "Step 3 / 5 — Download Web Fonts"
+step 3 "Download Web Fonts (Orbitron, Space Mono)"
 
 FONT_DIR="$INSTALL_DIR/static/fonts"
 UA="Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 download_font(){
-    # $1 = Google Fonts CSS API URL
-    # $2 = file prefix (e.g. "Orbitron-Regular")
     local CSS_URL="$1"
     local PREFIX="$2"
-    # Fetch the CSS (contains the actual woff2 URL)
     local CSS
     CSS=$(curl -fsSL -A "$UA" "$CSS_URL" 2>/dev/null || echo "")
-    if [ -z "$CSS" ]; then
-        warn "  Could not fetch CSS for $PREFIX"
-        return 1
-    fi
-    # Extract the first woff2 URL
+    if [ -z "$CSS" ]; then warn "  Could not fetch CSS for $PREFIX"; return 1; fi
     local WOFF2_URL
     WOFF2_URL=$(echo "$CSS" | grep -oE 'https://fonts\.gstatic\.com/[^)]+\.woff2' | head -1)
-    if [ -z "$WOFF2_URL" ]; then
-        warn "  No woff2 URL found in CSS for $PREFIX"
-        return 1
-    fi
+    if [ -z "$WOFF2_URL" ]; then warn "  No woff2 URL found for $PREFIX"; return 1; fi
     if curl -fsSL --retry 3 "$WOFF2_URL" -o "$FONT_DIR/${PREFIX}.woff2" 2>/dev/null; then
-        local SZ
-        SZ=$(du -sh "$FONT_DIR/${PREFIX}.woff2" | cut -f1)
+        local SZ; SZ=$(du -sh "$FONT_DIR/${PREFIX}.woff2" | cut -f1)
         ok "  ${PREFIX}.woff2 ($SZ)"
     else
-        warn "  Failed to download ${PREFIX}.woff2"
-        return 1
+        warn "  Failed to download ${PREFIX}.woff2"; return 1
     fi
 }
 
 BASE="https://fonts.googleapis.com/css2"
-download_font "${BASE}?family=Orbitron:wght@400"  "Orbitron-Regular"
-download_font "${BASE}?family=Orbitron:wght@700"  "Orbitron-Bold"
-download_font "${BASE}?family=Orbitron:wght@900"  "Orbitron-Black"
+download_font "${BASE}?family=Orbitron:wght@400"   "Orbitron-Regular"
+download_font "${BASE}?family=Orbitron:wght@700"   "Orbitron-Bold"
+download_font "${BASE}?family=Orbitron:wght@900"   "Orbitron-Black"
 download_font "${BASE}?family=Space+Mono:wght@400" "SpaceMono-Regular"
 download_font "${BASE}?family=Space+Mono:wght@700" "SpaceMono-Bold"
 
@@ -108,20 +107,16 @@ else
 fi
 
 # ── Step 4: HYG Star Catalog ──────────────────────────────────────────────────
-header "Step 4 / 5 — Download HYG Star Catalog (~14 MB)"
-# Downloading at install time (curl has no CORS restrictions) means the
-# browser fetches from /static/data/hyg.csv — same-origin, always works.
+step 4 "Download HYG Star Catalog (~14 MB)"
 
 HYG_DEST="$INSTALL_DIR/static/data/hyg.csv"
 HYG_DOWNLOADED=0
-
-# Try candidate URLs in order of preference
 HYG_URL="https://codeberg.org/astronexus/hyg/media/branch/main/data/athyg_v3/hyglike_from_athyg_v32.csv.gz"
 HYG_TMP_GZ="/tmp/hyg_install.csv.gz"
 
-info "Downloading: hyglike_from_athyg_v32.csv.gz (~3 MB compressed)"
+info "Downloading hyglike_from_athyg_v32.csv.gz (~3 MB compressed)..."
 if curl -L --retry 2 --retry-delay 3 --max-time 120 --progress-bar \
-        -A "Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+        -A "$UA" \
         -H "Accept: application/octet-stream,*/*" \
         -H "Referer: https://codeberg.org/astronexus/hyg" \
         "$HYG_URL" -o "$HYG_TMP_GZ" 2>/dev/null; then
@@ -134,16 +129,13 @@ if curl -L --retry 2 --retry-delay 3 --max-time 120 --progress-bar \
                 ok "HYG catalog ready: $(du -sh $HYG_DEST | cut -f1) · ${ROWS} stars"
                 HYG_DOWNLOADED=1
             else
-                warn "Decompressed file invalid — skipping catalog"
-                rm -f "$HYG_DEST"
+                warn "Decompressed file invalid — skipping"; rm -f "$HYG_DEST"
             fi
         else
-            warn "Decompression failed — file may be an error page, not a real gz"
-            rm -f "$HYG_DEST"
+            warn "Decompression failed"; rm -f "$HYG_DEST"
         fi
     else
-        warn "Downloaded file only ${GZ_BYTES} bytes — Codeberg bot-detection may have blocked it"
-        rm -f "$HYG_TMP_GZ"
+        warn "Downloaded file only ${GZ_BYTES} bytes — may be bot-blocked"; rm -f "$HYG_TMP_GZ"
     fi
 else
     warn "Download failed"
@@ -151,15 +143,14 @@ fi
 rm -f "$HYG_TMP_GZ"
 
 if [ "$HYG_DOWNLOADED" -eq 0 ]; then
-    warn "Could not download HYG catalog from any source."
-    warn "The app will use the 133-star embedded catalog."
+    warn "Could not download HYG catalog. App uses 133-star embedded catalog."
     warn "Run 'sudo bash update-catalog.sh' later to retry."
 else
     chown www-data:www-data "$HYG_DEST"
 fi
 
-# ── Step 5: Exoplanet Catalog ────────────────────────────────────────────────
-header "Step 5 / 6 — Download Exoplanet Catalog"
+# ── Step 5: Exoplanet Catalog ─────────────────────────────────────────────────
+step 5 "Download NASA Exoplanet Catalog"
 
 EXO_DEST="$INSTALL_DIR/static/data/exoplanets.csv"
 EXO_TMP="/tmp/exoplanets_install.csv"
@@ -179,12 +170,10 @@ if curl -fsSL --retry 3 --retry-delay 2 --max-time 60 \
         ok "Exoplanet catalog ready: $((ROWS-1)) confirmed planets"
         EXO_DOWNLOADED=1
     else
-        warn "Invalid response from NASA TAP API — skipping exoplanet catalog"
-        rm -f "$EXO_TMP"
+        warn "Invalid response from NASA TAP API — skipping"; rm -f "$EXO_TMP"
     fi
 else
-    warn "Could not reach NASA Exoplanet Archive — skipping"
-    rm -f "$EXO_TMP"
+    warn "Could not reach NASA Exoplanet Archive — skipping"; rm -f "$EXO_TMP"
 fi
 
 if [ "$EXO_DOWNLOADED" -eq 0 ]; then
@@ -193,30 +182,39 @@ if [ "$EXO_DOWNLOADED" -eq 0 ]; then
 fi
 
 # ── Step 6: App files & nginx config ─────────────────────────────────────────
-header "Step 6 / 7 — Install App & Configure nginx"
+step 6 "Install App Files & Configure nginx"
 
-cp "$SCRIPT_DIR/index.html" "$INSTALL_DIR/index.html"
-ok "index.html installed"
-
-# Solar system viewer
-if [ -f "$SCRIPT_DIR/solar-system.html" ]; then
-  cp "$SCRIPT_DIR/solar-system.html" "$INSTALL_DIR/solar-system.html"
-  ok "solar-system.html installed"
-fi
-
-if [ -f "$SCRIPT_DIR/exoplanet-system.html" ]; then
-  cp "$SCRIPT_DIR/exoplanet-system.html" "$INSTALL_DIR/exoplanet-system.html"
-  ok "exoplanet-system.html installed"
-fi
-
-# Copy update scripts so they're accessible from the install dir
-for script in update-catalog.sh update-exoplanets.sh update-data.sh update.sh; do
-  if [ -f "$SCRIPT_DIR/$script" ]; then
-    cp "$SCRIPT_DIR/$script" "$INSTALL_DIR/$script"
-    chmod +x "$INSTALL_DIR/$script"
-  fi
+# HTML pages
+for page in index.html solar-system.html exoplanet-system.html planet-system.html; do
+    if [ -f "$SCRIPT_DIR/$page" ]; then
+        cp "$SCRIPT_DIR/$page" "$INSTALL_DIR/$page"
+        ok "$page installed"
+    else
+        warn "$page not found in source — skipping"
+    fi
 done
-ok "Update scripts installed to $INSTALL_DIR"
+
+# Shared CSS and JS
+mkdir -p "$INSTALL_DIR/static/css"
+if [ -f "$SCRIPT_DIR/static/css/worldbuilding.css" ]; then
+    cp "$SCRIPT_DIR/static/css/worldbuilding.css" "$INSTALL_DIR/static/css/worldbuilding.css"
+    ok "worldbuilding.css installed"
+fi
+for jsfile in worldbuilding.js worldbuilding-panel.js; do
+    if [ -f "$SCRIPT_DIR/static/js/$jsfile" ]; then
+        cp "$SCRIPT_DIR/static/js/$jsfile" "$INSTALL_DIR/static/js/$jsfile"
+        ok "$jsfile installed"
+    fi
+done
+
+# Update scripts
+for script in update-catalog.sh update-exoplanets.sh update-data.sh update.sh; do
+    if [ -f "$SCRIPT_DIR/$script" ]; then
+        cp "$SCRIPT_DIR/$script" "$INSTALL_DIR/$script"
+        chmod +x "$INSTALL_DIR/$script"
+    fi
+done
+ok "Update scripts installed"
 
 chown -R www-data:www-data "$INSTALL_DIR"
 chmod -R 755 "$INSTALL_DIR"
@@ -230,14 +228,13 @@ fi
 
 cp "$SCRIPT_DIR/nginx.conf" /etc/nginx/sites-available/starmap
 ln -sf /etc/nginx/sites-available/starmap /etc/nginx/sites-enabled/starmap
-
-nginx -t 2>/dev/null && ok "nginx config valid" || fail "nginx config invalid — check /etc/nginx/sites-available/starmap"
+nginx -t 2>/dev/null && ok "nginx config valid" || fail "nginx config invalid"
 systemctl enable nginx --quiet
 systemctl restart nginx
 ok "nginx started and enabled on boot"
 
-# ── Step 7: Worldbuilding API ────────────────────────────────────────────────
-header "Step 7 / 7 — Install Worldbuilding API"
+# ── Step 7: Worldbuilding API ─────────────────────────────────────────────────
+step 7 "Install Worldbuilding API"
 
 if [ -f "$SCRIPT_DIR/api/install-api.sh" ]; then
     bash "$SCRIPT_DIR/api/install-api.sh"
@@ -247,23 +244,21 @@ else
     warn "Run 'sudo bash api/install-api.sh' manually to enable worldbuilding features"
 fi
 
-# ── Cron: Nightly catalog updates ─────────────────────────────────────────────
+# ── Nightly cron ──────────────────────────────────────────────────────────────
 header "Scheduling Nightly Catalog Updates"
 
-CRON_JOB="0 2 * * * root bash $INSTALL_DIR/update-data.sh >> /var/log/starmap/update-data.log 2>&1"
-CRON_FILE="/etc/cron.d/starmap-update"
-
-echo "$CRON_JOB" > "$CRON_FILE"
-chmod 644 "$CRON_FILE"
-ok "Cron job installed: $CRON_FILE"
-ok "Schedule: 2:00 AM nightly (star catalog + exoplanet catalog)"
-info "Logs will be written to: /var/log/starmap/update-data.log"
 mkdir -p /var/log/starmap
 chown root:root /var/log/starmap
 chmod 755 /var/log/starmap
 
+CRON_JOB="0 2 * * * root bash $INSTALL_DIR/update-data.sh >> /var/log/starmap/update-data.log 2>&1"
+echo "$CRON_JOB" > /etc/cron.d/starmap-update
+chmod 644 /etc/cron.d/starmap-update
+ok "Cron job installed: 2:00 AM nightly"
+info "Logs: /var/log/starmap/update-data.log"
+
 # ── Summary ───────────────────────────────────────────────────────────────────
-header "INSTALLATION COMPLETE"
+header "INSTALLATION COMPLETE  ✓  (7 / 7 steps)"
 IP4=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "unknown")
 HOST=$(hostname)
 echo ""
@@ -274,25 +269,22 @@ echo -e "  From your network: ${CYAN}http://$IP4/${NC}"
 echo -e "  Via hostname     : ${CYAN}http://$HOST.local/${NC}"
 echo ""
 if [ "$HYG_DOWNLOADED" -eq 1 ]; then
-    echo -e "  ${GREEN}✓ Full HYG catalog installed — ~3,500 stars will load instantly${NC}"
+    echo -e "  ${GREEN}✓ Full HYG catalog — ~3,500 stars${NC}"
 else
-    echo -e "  ${YELLOW}⚠  HYG catalog not downloaded — run: sudo bash update-catalog.sh${NC}"
+    echo -e "  ${YELLOW}⚠  HYG catalog missing — run: sudo bash $INSTALL_DIR/update-catalog.sh${NC}"
 fi
 if [ "$EXO_DOWNLOADED" -eq 1 ]; then
-    echo -e "  ${GREEN}✓ Exoplanet catalog installed — planet indicators active${NC}"
+    echo -e "  ${GREEN}✓ Exoplanet catalog — planet indicators active${NC}"
 else
-    echo -e "  ${YELLOW}⚠  Exoplanet catalog not downloaded — run: sudo bash update-exoplanets.sh${NC}"
+    echo -e "  ${YELLOW}⚠  Exoplanet catalog missing — run: sudo bash $INSTALL_DIR/update-exoplanets.sh${NC}"
 fi
-echo -e "  ${GREEN}✓ Nightly updates scheduled at 2:00 AM via cron${NC}"
+echo -e "  ${GREEN}✓ Nightly updates scheduled at 2:00 AM${NC}"
 echo ""
 echo -e "  ${YELLOW}Useful commands:${NC}"
-echo -e "    sudo systemctl status nginx"
 echo -e "    sudo systemctl status starmap-api"
-echo -e "    sudo bash update-data.sh         — run all catalog updates now"
-echo -e "    sudo bash update-catalog.sh      — refresh star catalog only"
-echo -e "    sudo bash update-exoplanets.sh   — refresh exoplanet catalog only"
-echo -e "    sudo bash update.sh              — update the app HTML"
-echo -e "    sudo bash kiosk-setup.sh         — full-screen kiosk mode"
-echo -e "    cat /var/log/starmap/update-data.log  — view update logs"
-echo -e "    sudo journalctl -u starmap-api -f     — worldbuilding API logs"
+echo -e "    sudo bash $INSTALL_DIR/update-data.sh         — run all catalog updates now"
+echo -e "    sudo bash $INSTALL_DIR/update-catalog.sh      — refresh star catalog only"
+echo -e "    sudo bash $INSTALL_DIR/update-exoplanets.sh   — refresh exoplanet catalog only"
+echo -e "    sudo journalctl -u starmap-api -f             — worldbuilding API logs"
+echo -e "    cat /var/log/starmap/update-data.log          — catalog update logs"
 echo ""

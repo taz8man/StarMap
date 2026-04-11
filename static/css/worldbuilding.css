@@ -1,39 +1,334 @@
 /*
- * worldbuilding.css
+ * worldbuilding.css — v1.0 Glass Design System
  * Shared styles for the Worldbuilding panel.
- * Used by: index.html, exoplanet-system.html
+ * Used by: index.html, exoplanet-system.html, solar-system.html, planet-system.html
  */
 
-/* ── WORLDBUILDING PANEL ── */
-.wb-field{margin-bottom:8px}
-.wb-lbl{display:block;font-size:var(--fs-sm);color:var(--pdm);margin-bottom:3px;letter-spacing:.04em}
-.wb-inp{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(160,80,220,.25);
-  border-radius:4px;color:var(--ptx);padding:5px 8px;font-family:'Space Mono',monospace;
-  font-size:var(--fs-md);outline:none;transition:border-color .15s;box-sizing:border-box}
-.wb-inp:focus{border-color:rgba(160,80,220,.7)}
-.wb-inp option{background:#0d1a2e;color:var(--ptx)}
-.wb-btn-primary{font-family:'Space Mono',monospace;font-size:var(--fs-md);
-  background:rgba(160,80,220,.3);color:#dd99ff;border:1px solid rgba(160,80,220,.5);
-  border-radius:4px;padding:5px 12px;cursor:pointer;transition:background .15s;letter-spacing:.04em}
-.wb-btn-primary:hover{background:rgba(160,80,220,.55)}
-.wb-btn-sm{font-family:'Space Mono',monospace;font-size:var(--fs-sm);
-  background:rgba(100,100,120,.3);color:var(--pdm);border:1px solid rgba(100,100,120,.3);
-  border-radius:4px;padding:4px 10px;cursor:pointer;transition:background .15s}
-.wb-btn-sm:hover{background:rgba(100,100,120,.5);color:var(--ptx)}
-.wb-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;
-  font-size:var(--fs-sm);cursor:default}
-.wb-tag button{background:none;border:none;color:inherit;cursor:pointer;padding:0;font-size:11px;opacity:.7}
-.wb-tag button:hover{opacity:1}
-.wb-ctrl-row{background:rgba(255,255,255,.04);border:1px solid rgba(160,80,220,.15);
-  border-radius:5px;padding:8px 10px;margin-bottom:7px}
-.wb-ctrl-row .wb-ctrl-hdr{display:flex;justify-content:space-between;align-items:center;
-  margin-bottom:4px}
-.wb-planet-card{background:rgba(255,255,255,.04);border:1px solid rgba(0,180,120,.15);
-  border-radius:5px;padding:8px 10px;margin-bottom:7px}
-.wb-planet-card .wb-planet-hdr{display:flex;justify-content:space-between;align-items:center;
-  margin-bottom:3px}
-#wb-panel::-webkit-scrollbar{width:4px}
-#wb-panel *::-webkit-scrollbar{width:4px}
-#wb-panel *::-webkit-scrollbar-thumb{background:rgba(160,80,220,.3);border-radius:2px}
-#wb-panel{flex-direction:column}
-.wb-tab.active{color:#cc88ff !important;border-bottom-color:#cc88ff !important}
+/* ── GLASS PANEL BASE ──────────────────────────────────────────────────────── */
+#wb-panel{
+  flex-direction:column;
+  background:rgba(245,243,240,0.72) !important;
+  backdrop-filter:blur(28px) saturate(1.6) !important;
+  -webkit-backdrop-filter:blur(28px) saturate(1.6) !important;
+  border:none !important;
+  border-radius:20px !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.90) inset,
+    0 -1px 0 rgba(0,0,0,0.06) inset,
+    1px 0 0 rgba(255,255,255,0.60) inset,
+    -1px 0 0 rgba(255,255,255,0.30) inset,
+    0 12px 48px rgba(0,0,0,0.10),
+    0 2px 8px rgba(0,0,0,0.06) !important;
+  color:#1a1a1a !important;
+}
+
+/* Tab bar glass strip */
+#wb-panel > div:first-child {
+  background:rgba(235,232,228,0.60) !important;
+  border-bottom:1px solid rgba(0,0,0,0.07) !important;
+  border-radius:20px 20px 0 0 !important;
+  backdrop-filter:blur(10px);
+}
+
+/* ── TAB BUTTONS ───────────────────────────────────────────────────────────── */
+.wb-tab{
+  color:#6a6a6a !important;
+  border-bottom:2px solid transparent !important;
+  font-size:var(--fs-sm);
+  transition:color .15s;
+}
+.wb-tab:hover{ color:#1a1a1a !important; }
+.wb-tab.active,
+.wb-tab[style*="#cc88ff"]{
+  color:#6633cc !important;
+  border-bottom-color:#6633cc !important;
+}
+
+/* ── HEADINGS & LABELS ─────────────────────────────────────────────────────── */
+#wb-panel h4,
+#wb-panel .wb-section-hdr{
+  color:#1a1a1a !important;
+  letter-spacing:.10em;
+}
+#wb-panel .wb-lbl,
+#wb-panel [style*="color:var(--pdm)"],
+#wb-panel [style*="color:#4a6080"]{
+  color:#6a6a6a !important;
+}
+#wb-panel [style*="color:var(--ptx)"],
+#wb-panel [style*="color:#c8d8f0"]{
+  color:#1a1a1a !important;
+}
+#wb-panel [style*="color:#88bbff"]{
+  color:#2255bb !important;
+}
+#wb-panel [style*="color:#cc88ff"],
+#wb-panel [style*="color:#dd99ff"]{
+  color:#6633cc !important;
+}
+#wb-panel [style*="color:#44cc88"],
+#wb-panel [style*="color:#00dd88"]{
+  color:#1a8855 !important;
+}
+#wb-panel [style*="color:#cc4444"]{
+  color:#cc2222 !important;
+}
+
+/* WB star label */
+#wb-star-label{ color:#1a1a1a !important; }
+
+/* ── INPUTS & SELECTS ──────────────────────────────────────────────────────── */
+.wb-inp{
+  width:100%;
+  background:rgba(255,255,255,0.65) !important;
+  border:1px solid rgba(0,0,0,0.12) !important;
+  border-radius:8px !important;
+  color:#1a1a1a !important;
+  padding:6px 10px;
+  font-family:'Space Mono',monospace;
+  font-size:var(--fs-md);
+  outline:none;
+  transition:border-color .15s, box-shadow .15s;
+  box-sizing:border-box;
+  box-shadow:0 1px 3px rgba(0,0,0,0.06) inset;
+}
+.wb-inp:focus{
+  border-color:rgba(102,51,204,0.55) !important;
+  box-shadow:0 0 0 3px rgba(102,51,204,0.10), 0 1px 3px rgba(0,0,0,0.06) inset !important;
+}
+.wb-inp::placeholder{ color:#aaaaaa; }
+.wb-inp option{
+  background:#ffffff;
+  color:#1a1a1a;
+}
+textarea.wb-inp{ line-height:1.5; }
+
+/* ── BUTTONS ───────────────────────────────────────────────────────────────── */
+.wb-btn-primary{
+  font-family:'Space Mono',monospace;
+  font-size:var(--fs-md);
+  background:rgba(102,51,204,0.15) !important;
+  color:#4422aa !important;
+  border:1px solid rgba(102,51,204,0.30) !important;
+  border-radius:10px !important;
+  padding:6px 14px;
+  cursor:pointer;
+  transition:background .15s, box-shadow .15s;
+  letter-spacing:.04em;
+  box-shadow:0 1px 0 rgba(255,255,255,0.8) inset;
+}
+.wb-btn-primary:hover{
+  background:rgba(102,51,204,0.25) !important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.8) inset, 0 2px 8px rgba(102,51,204,0.15);
+}
+.wb-btn-sm{
+  font-family:'Space Mono',monospace;
+  font-size:var(--fs-sm);
+  background:rgba(0,0,0,0.06) !important;
+  color:#4a4a4a !important;
+  border:1px solid rgba(0,0,0,0.12) !important;
+  border-radius:8px !important;
+  padding:4px 10px;
+  cursor:pointer;
+  transition:background .15s;
+  box-shadow:0 1px 0 rgba(255,255,255,0.7) inset;
+}
+.wb-btn-sm:hover{
+  background:rgba(0,0,0,0.11) !important;
+  color:#1a1a1a !important;
+}
+
+/* ── CARDS ─────────────────────────────────────────────────────────────────── */
+.wb-ctrl-row{
+  background:rgba(255,255,255,0.50) !important;
+  border:1px solid rgba(0,0,0,0.08) !important;
+  border-radius:12px !important;
+  padding:10px 12px;
+  margin-bottom:8px;
+  box-shadow:0 1px 0 rgba(255,255,255,0.9) inset;
+}
+.wb-ctrl-row .wb-ctrl-hdr{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:4px;
+}
+.wb-planet-card{
+  background:rgba(255,255,255,0.50) !important;
+  border:1px solid rgba(0,0,0,0.08) !important;
+  border-radius:12px !important;
+  padding:10px 12px;
+  margin-bottom:8px;
+  box-shadow:0 1px 0 rgba(255,255,255,0.9) inset;
+}
+.wb-planet-card .wb-planet-hdr{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:4px;
+}
+
+/* ── TAGS ───────────────────────────────────────────────────────────────────── */
+.wb-tag{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:2px 9px;
+  border-radius:20px;
+  font-size:var(--fs-sm);
+  cursor:default;
+  box-shadow:0 1px 0 rgba(255,255,255,0.7) inset;
+}
+.wb-tag button{
+  background:none;
+  border:none;
+  color:inherit;
+  cursor:pointer;
+  padding:0;
+  font-size:11px;
+  opacity:.6;
+}
+.wb-tag button:hover{ opacity:1; }
+
+/* ── HYG REFERENCE BOX ──────────────────────────────────────────────────────── */
+#wb-hyg-box{
+  background:rgba(255,255,255,0.45) !important;
+  border:1px solid rgba(0,0,0,0.08) !important;
+  border-radius:12px !important;
+  padding:10px 12px;
+  margin-bottom:10px;
+  box-shadow:0 1px 0 rgba(255,255,255,0.9) inset;
+}
+#wb-hyg-rows .lb,
+#wb-hyg-rows [style*="color:var(--pdm)"]{
+  color:#6a6a6a !important;
+}
+#wb-hyg-rows [style*="color:var(--ptx)"]{
+  color:#1a1a1a !important;
+}
+
+/* ── SCROLLBAR ───────────────────────────────────────────────────────────────── */
+#wb-panel::-webkit-scrollbar{ width:4px; }
+#wb-panel *::-webkit-scrollbar{ width:4px; }
+#wb-panel *::-webkit-scrollbar-thumb{
+  background:rgba(0,0,0,0.15);
+  border-radius:2px;
+}
+#wb-panel *::-webkit-scrollbar-track{
+  background:transparent;
+}
+
+/* ── CLOSE BUTTON ────────────────────────────────────────────────────────────── */
+#wb-close{
+  color:#6a6a6a !important;
+  font-size:18px;
+}
+#wb-close:hover{ color:#1a1a1a !important; }
+
+/* ── FIELD LABELS ────────────────────────────────────────────────────────────── */
+.wb-field{ margin-bottom:9px; }
+.wb-lbl{
+  display:block;
+  font-size:var(--fs-sm);
+  color:#6a6a6a;
+  margin-bottom:3px;
+  letter-spacing:.04em;
+}
+
+/* ── NASA CARD OVERRIDES ─────────────────────────────────────────────────────── */
+#wb-panel [style*="border:1px solid rgba(0,180,120"],
+#wb-panel [style*="border-color:rgba(0,180,120"]{
+  background:rgba(255,255,255,0.50) !important;
+  border-color:rgba(0,140,80,0.20) !important;
+  border-radius:12px !important;
+}
+#wb-panel [style*="color:#44aa66"],
+#wb-panel [style*="color:#00cc88"]{
+  color:#1a7a4a !important;
+}
+#wb-panel [style*="color:#ffaa44"],
+#wb-panel [style*="color:#ffbb44"]{
+  color:#996600 !important;
+}
+
+/* ── SECTION DIVIDERS ────────────────────────────────────────────────────────── */
+#wb-panel [style*="letter-spacing:.04em"],
+#wb-panel [style*="letter-spacing:.08em"]{
+  color:#8a8a8a !important;
+}
+
+/* ── DP ACTION BUTTONS ───────────────────────────────────────────────────── */
+.dp-btn{
+  /* Use flex so <a> and <button> behave identically */
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  min-height:34px;
+  font-family:'Space Mono',monospace;
+  font-size:var(--fs-md);
+  text-align:center;
+  padding:7px 12px;
+  border-radius:10px;
+  cursor:pointer;
+  letter-spacing:.05em;
+  transition:filter .15s, box-shadow .15s;
+  text-decoration:none;
+  box-sizing:border-box;
+  font-weight:600;
+  margin-top:0;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.75) inset,
+    0 1px 4px rgba(0,0,0,0.12);
+}
+.dp-btn:hover{
+  filter:brightness(0.92);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.75) inset,
+    0 3px 10px rgba(0,0,0,0.15);
+}
+
+/* Wikipedia — blue */
+.dp-btn-wiki{
+  background:rgba(0,85,204,0.35);
+  color:#001a66;
+  border:1.5px solid rgba(0,85,204,0.65);
+}
+/* Solar system — amber/gold */
+.dp-btn-solar{
+  background:rgba(220,140,0,0.38);
+  color:#4a2800;
+  border:1.5px solid rgba(180,110,0,0.65);
+}
+/* Planetary system — green */
+.dp-btn-exo{
+  background:rgba(0,160,100,0.35);
+  color:#003318;
+  border:1.5px solid rgba(0,140,90,0.65);
+}
+/* Moon system — rose/red tint */
+.dp-btn-moons{
+  background:rgba(200,40,60,0.25);
+  color:#6a0010;
+  border:1.5px solid rgba(200,40,60,0.55);
+}
+/* Worldbuilding — purple */
+.dp-btn-wb{
+  background:rgba(120,60,220,0.35);
+  color:#200055;
+  border:1.5px solid rgba(102,51,204,0.65);
+}
+
+/* ── WB SAVE/PRIMARY BUTTONS ─────────────────────────────────────────────── */
+/* Override the light-purple-on-purple problem */
+.wb-btn-primary{
+  background:rgba(255,255,255,0.70) !important;
+  color:#2a0a66 !important;
+  border:1px solid rgba(102,51,204,0.35) !important;
+  border-left:3px solid #6633cc !important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.9) inset, 0 1px 4px rgba(0,0,0,0.07) !important;
+}
+.wb-btn-primary:hover{
+  background:rgba(255,255,255,0.90) !important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.9) inset, 0 2px 8px rgba(102,51,204,0.15) !important;
+}

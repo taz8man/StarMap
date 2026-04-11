@@ -9,14 +9,14 @@
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --bg:#f0ede6;
-  --ink:#0d1a2e;
+  --ink:#1a1a1a;
   --ac:#0066cc;
   --ac2:#cc4400;
   --tx:#1a2a3e;
   --dm:#8899aa;
-  --pn:rgba(10,20,38,0.91);
-  --ptx:#c8d8f0;
-  --pdm:#4a6080;
+  --pn:rgba(245,243,240,0.72);
+  --ptx:#1a1a1a;
+  --pdm:#6a6a6a;
 
   /* ── Fluid scale ─────────────────────────────────────────────────────────
      Scales from 12px (tiny screens) through 14px (1080p laptop) to 18px
@@ -61,7 +61,7 @@ canvas{display:block}#wrap{position:fixed;inset:0}
 #sc b{color:var(--ac)}
 
 /* dark UI panels */
-.pn{position:fixed;background:var(--pn);border:1px solid rgba(100,150,255,.18);border-radius:6px;padding:clamp(10px,1.2vh,16px) clamp(10px,1vw,16px);z-index:10;backdrop-filter:blur(10px)}
+.pn{position:fixed;background:rgba(245,243,240,0.72);backdrop-filter:blur(28px) saturate(1.6);-webkit-backdrop-filter:blur(28px) saturate(1.6);border:none;border-radius:18px;padding:clamp(10px,1.2vh,16px) clamp(10px,1vw,16px);z-index:10;box-shadow:0 1px 0 rgba(255,255,255,0.90) inset,0 -1px 0 rgba(0,0,0,0.06) inset,1px 0 0 rgba(255,255,255,0.60) inset,-1px 0 0 rgba(255,255,255,0.30) inset,0 12px 48px rgba(0,0,0,0.10),0 2px 8px rgba(0,0,0,0.06)}
 .pn h4{font-family:'Orbitron',sans-serif;font-size:var(--fs-sm);letter-spacing:.14em;color:var(--pdm);margin-bottom:8px;text-transform:uppercase}
 #dp{top:var(--panel-top);right:18px;width:var(--pw-det);display:none;z-index:16}
 
@@ -102,9 +102,9 @@ canvas{display:block}#wrap{position:fixed;inset:0}
 /* toggle switch — scales with --fs */
 .sw{position:relative;width:calc(var(--fs)*2.4);height:calc(var(--fs)*1.35);flex-shrink:0}
 .sw input{opacity:0;width:0;height:0;position:absolute}
-.sw .tk{position:absolute;inset:0;background:#0d1a28;border-radius:calc(var(--fs)*0.7);transition:.2s;cursor:pointer;border:1px solid rgba(100,150,255,.12)}
-.sw .tk:before{content:'';position:absolute;width:calc(var(--fs)*1.05);height:calc(var(--fs)*1.05);border-radius:50%;left:2px;top:50%;transform:translateY(-50%);background:#1e3045;transition:.2s}
-.sw input:checked+.tk{background:rgba(0,102,204,.25);border-color:rgba(0,102,204,.5)}
+.sw .tk{position:absolute;inset:0;background:rgba(0,0,0,0.06);border-radius:calc(var(--fs)*0.7);transition:.2s;cursor:pointer;border:1.5px solid rgba(0,85,204,0.35)}
+.sw .tk:before{content:'';position:absolute;width:calc(var(--fs)*1.05);height:calc(var(--fs)*1.05);border-radius:50%;left:2px;top:50%;transform:translateY(-50%);background:#aabbcc;transition:.2s}
+.sw input:checked+.tk{background:rgba(0,102,204,.25);border-color:rgba(0,102,204,.6)}
 .sw input:checked+.tk:before{transform:translateY(-50%) translateX(calc(var(--fs)*1.1));background:#0088ff;box-shadow:0 0 6px #0088ff}
 
 .fr{margin-bottom:8px}
@@ -117,14 +117,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:calc(var(-
 .cr b{color:#88bbff;font-weight:normal}
 
 /* detail panel */
-#dp h4{color:#88bbff;font-size:var(--fs-md);margin-bottom:8px;padding-right:18px}
+#dp h4{color:#1a1a1a;font-size:var(--fs-md);margin-bottom:8px;padding-right:18px}
 .dr{font-size:var(--fs-md);margin-bottom:4px;color:var(--ptx)}
-.dr .lb{color:var(--pdm)}
-#cs{position:absolute;top:7px;right:9px;font-size:var(--fs-lg);color:var(--pdm);cursor:pointer;background:none;border:none}
-#cs:hover{color:#88bbff}
+.dr .lb{color:#6a6a6a}
+#cs{position:absolute;top:7px;right:9px;font-size:var(--fs-lg);color:#6a6a6a;cursor:pointer;background:none;border:none}
+#cs:hover{color:#1a1a1a}
 
 /* tooltip */
-#tp{position:fixed;pointer-events:none;z-index:30;display:none;background:var(--pn);border:1px solid rgba(100,150,255,.3);border-radius:4px;padding:8px 12px;max-width:clamp(200px,18vw,320px);backdrop-filter:blur(8px)}
+#tp{position:fixed;pointer-events:none;z-index:30;display:none;background:var(--pn);border:none;border-radius:12px;box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 8px 24px rgba(0,0,0,.10);padding:8px 12px;max-width:clamp(200px,18vw,320px);backdrop-filter:blur(8px)}
 #tp h3{font-family:'Orbitron',sans-serif;font-size:var(--fs-lg);color:#88bbff;margin-bottom:5px}
 #tp p{font-size:var(--fs-md);color:var(--ptx);line-height:1.7}
 #tp p b{color:#ffaa66;font-weight:normal}
@@ -137,49 +137,48 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:calc(var(-
 #srch-input{
   flex:1;height:calc(var(--fs)*2.4);padding:0 10px;
   font-family:'Space Mono',monospace;font-size:var(--fs-md);letter-spacing:.05em;
-  background:rgba(10,20,38,0.92);color:var(--ptx);
-  border:1px solid rgba(100,150,255,.3);border-right:none;
-  border-radius:4px 0 0 4px;outline:none;
-  backdrop-filter:blur(10px);transition:border-color .15s;
+  background:rgba(245,243,240,0.80);color:#1a1a1a;
+  border:1px solid rgba(0,0,0,.12);border-right:none;
+  border-radius:10px 0 0 10px;outline:none;
+  backdrop-filter:blur(20px);transition:border-color .15s;
 }
 #srch-input::placeholder{color:var(--pdm);letter-spacing:.04em}
-#srch-input:focus{border-color:rgba(100,150,255,.7)}
+#srch-input:focus{border-color:rgba(102,51,204,.5)}
 #srch-btn{
   width:calc(var(--fs)*2.4);height:calc(var(--fs)*2.4);flex-shrink:0;
-  background:rgba(0,102,204,.5);border:1px solid rgba(100,150,255,.3);
-  border-radius:0 4px 4px 0;cursor:pointer;color:var(--ptx);font-size:var(--fs-lg);
+  background:rgba(0,85,204,.20);border:1px solid rgba(0,0,0,.12);
+  border-radius:0 10px 10px 0;cursor:pointer;color:#0044aa;font-size:var(--fs-lg);
   display:flex;align-items:center;justify-content:center;transition:background .15s;
 }
-#srch-btn:hover{background:rgba(0,102,204,.8)}
+#srch-btn:hover{background:rgba(0,85,204,.35)}
 #srch-clear{
   display:none;width:calc(var(--fs)*2.1);height:calc(var(--fs)*2.4);flex-shrink:0;margin-left:4px;
-  background:rgba(10,20,38,0.7);border:1px solid rgba(100,150,255,.2);
-  border-radius:4px;cursor:pointer;color:var(--pdm);font-size:var(--fs-lg);
+  background:rgba(245,243,240,0.80);border:1px solid rgba(0,0,0,.10);
+  border-radius:8px;cursor:pointer;color:#6a6a6a;font-size:var(--fs-lg);
   align-items:center;justify-content:center;transition:color .15s;
 }
-#srch-clear:hover{color:var(--ptx)}
+#srch-clear:hover{color:#1a1a1a}
 #srch-results{
   display:none;position:absolute;bottom:calc(var(--fs)*2.6);left:0;right:0;
-  background:rgba(10,20,38,0.96);border:1px solid rgba(100,150,255,.25);
-  border-radius:4px;backdrop-filter:blur(10px);
+  background:rgba(245,243,240,0.92);border:none;
+  border-radius:14px;backdrop-filter:blur(28px) saturate(1.6);
   max-height:clamp(200px,35vh,360px);overflow-y:auto;
-  box-shadow:0 -4px 20px rgba(0,0,0,.4);
+  box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 -8px 32px rgba(0,0,0,.12);
 }
 #srch-results::-webkit-scrollbar{width:4px}
 #srch-results::-webkit-scrollbar-track{background:transparent}
-#srch-results::-webkit-scrollbar-thumb{background:rgba(100,150,255,.3);border-radius:2px}
+#srch-results::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:2px}
 .srch-item{
-  padding:clamp(5px,.6vh,9px) 12px;font-size:var(--fs-md);color:var(--ptx);cursor:pointer;
+  padding:clamp(5px,.6vh,9px) 12px;font-size:var(--fs-md);color:#1a1a1a;cursor:pointer;
   display:flex;justify-content:space-between;align-items:center;
   border-bottom:1px solid rgba(100,150,255,.08);transition:background .1s;
 }
 .srch-item:last-child{border-bottom:none}
 .srch-item:hover,.srch-item.srch-active{background:rgba(0,102,204,.25)}
 .srch-item .si-name{font-weight:700;letter-spacing:.04em}
-.srch-item .si-meta{color:var(--pdm);font-size:var(--fs-sm);text-align:right;line-height:1.5}
-.srch-none{padding:8px 12px;font-size:var(--fs-md);color:var(--pdm);font-style:italic}
+.srch-item .si-meta{color:#6a6a6a;font-size:var(--fs-sm);text-align:right;line-height:1.5}
+.srch-none{padding:8px 12px;font-size:var(--fs-md);color:#8a8a8a;font-style:italic}
 /* WB styles → /static/css/worldbuilding.css */
-#dwiki:hover{background:rgba(68,153,255,.15);border-color:rgba(68,153,255,.7)}
 </style>
 <link rel="stylesheet" href="/static/css/worldbuilding.css">
 </head>
@@ -250,43 +249,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:calc(var(-
   <div class="dr"><span class="lb">Abs Mag   </span><span id="da"></span></div>
   <div class="dr"><span class="lb">Color Idx </span><span id="dci"></span></div>
   <div class="dr"><span class="lb">Gal XYZ   </span><span id="dxy"></span></div>
-  <div class="dr" id="dr-wiki" style="display:none;margin-top:8px">
+  <div class="dr" id="dr-wiki" style="display:none;margin-top:6px">
     <a id="dwiki" href="#" target="_blank" rel="noopener noreferrer"
-       style="color:#4499ff;text-decoration:none;font-size:var(--fs-md);
-              border:1px solid rgba(68,153,255,.35);border-radius:3px;
-              padding:4px 10px;display:inline-block;transition:background .15s">
-      ⬡ Wikipedia
-    </a>
+       class="dp-btn dp-btn-wiki">⬡ Wikipedia</a>
   </div>
   <div id="dr-solar" style="display:none;margin-top:6px">
-    <button id="btn-solar"
-      style="font-family:'Space Mono',monospace;font-size:var(--fs-md);
-             background:rgba(220,140,0,.25);color:#ffcc44;
-             border:1px solid rgba(220,140,0,.5);border-radius:3px;
-             padding:4px 10px;cursor:pointer;transition:background .15s;width:100%;
-             letter-spacing:.05em">
-      ☀ Open Solar System
-    </button>
+    <button id="btn-solar" class="dp-btn dp-btn-solar">☀ Sol System</button>
   </div>
   <div id="dr-exo" style="display:none;margin-top:6px">
-    <button id="btn-exo"
-      style="font-family:'Space Mono',monospace;font-size:var(--fs-md);
-             background:rgba(0,180,120,.18);color:#44ffaa;
-             border:1px solid rgba(0,180,120,.45);border-radius:3px;
-             padding:4px 10px;cursor:pointer;transition:background .15s;width:100%;
-             letter-spacing:.05em">
-      ⬡ View Planetary System
-    </button>
+    <button id="btn-exo" class="dp-btn dp-btn-exo">⬡ Planets</button>
   </div>
   <div style="margin-top:8px">
-    <button id="btn-wb"
-      style="font-family:'Space Mono',monospace;font-size:var(--fs-md);
-             background:rgba(160,80,220,.22);color:#cc88ff;
-             border:1px solid rgba(160,80,220,.45);border-radius:3px;
-             padding:4px 10px;cursor:pointer;transition:background .15s;width:100%;
-             letter-spacing:.05em">
-      ✎ Worldbuilding Notes
-    </button>
+    <button id="btn-wb" class="dp-btn dp-btn-wb">✎ Notes</button>
   </div>
 </div>
 
@@ -809,11 +783,19 @@ function buildStars(stars){
     // Show label if: known name OR bf matches a known star OR bright (mag<2.5) within 60 ly
     const nm  = s.name  || '';
     const bfn = (s.bf   || '').trim().toLowerCase();
+    // Quick exoplanet lookup for label decision (full lookup done again below for ring)
+    const hasExo = !!(
+      (s.hip && exoHosts.get(s.hip)) ||
+      (s.hd  && exoHosts.get('HD'+s.hd)) ||
+      (nm   && !/ [ABC]$/.test(nm)   ? exoHosts.get(nm)   : null) ||
+      (s.proper && !/ [ABC]$/.test(s.proper) ? exoHosts.get(s.proper) : null)
+    );
     const wantLabel = showL && (
       LNAMES.has(nm) ||
       LNAMES.has(bfn) ||
       (s.mag < 2.5 && s.dist_ly < 60) ||
-      (s.dist_ly > 0 && s.dist_ly < 5)  // everything within 5 ly always labelled
+      (s.dist_ly > 0 && s.dist_ly < 5) ||  // everything within 5 ly always labelled
+      hasExo                                 // all NASA exoplanet host stars
     );
     if(wantLabel){
       // Prefer proper name, then bf, then best catalog ID
@@ -829,11 +811,17 @@ function buildStars(stars){
     }
 
     // Planet indicator ring — green = NASA confirmed, blue = user-created only
-    // Look up by HIP number first (most reliable), then HD, then name
+    // Look up by HIP number first (most reliable), then HD, then name.
+    // For name fallback: only match if the star name exactly equals the NASA
+    // hostname — don't match if our name has a component suffix (A/B/C) that
+    // the NASA name lacks (avoids binary-component bleed e.g. Struve 2398 B
+    // matching a planet catalogued under "Struve 2398 A").
+    const nmExact = nm && !/ [ABC]$/.test(nm) ? exoHosts.get(nm) : null;
+    const properExact = s.proper && !/ [ABC]$/.test(s.proper) ? exoHosts.get(s.proper||'') : null;
     const exoEntry = (s.hip && exoHosts.get(s.hip))
                   || (s.hd  && exoHosts.get('HD'+s.hd))
-                  || exoHosts.get(nm)
-                  || exoHosts.get(s.proper||'');
+                  || nmExact
+                  || properExact;
     const hasUserPlanets = s.hip && wbPlanetHips.has(String(s.hip));
     const showRing = exoEntry || hasUserPlanets;
     if(showRing){
@@ -879,7 +867,7 @@ function buildStars(stars){
 //   1. Shown only when the camera is within 20 ly of the star
 //   2. Scaled so it always occupies LABEL_PX_H pixels on screen
 //   3. Offset a fixed number of SCREEN pixels to the right of the star
-const LABEL_VIS_DIST_SQ = 20*20;
+const LABEL_VIS_DIST_SQ = 35*35;
 const LABEL_OFFSET_PX   = 10;  // pixels right of the star dot
 
 // Reusable vectors to avoid per-frame allocation
@@ -946,9 +934,15 @@ const SOL_STAR = {
   altNames:[], sc:'G',
 };
 
-const ray=new THREE.Raycaster();ray.params.Points.threshold=1.4;
+const ray=new THREE.Raycaster();
 const mv=new THREE.Vector2();
 function pick(mx,my){
+  // Scale threshold with camera distance so hit zone matches visual star size.
+  // At r=12 (typical close view) threshold≈0.5; at r=120 threshold≈1.6.
+  // Stars rendered with Points use screen-pixel size independent of distance,
+  // so a smaller world-space threshold at close range prevents clicking the
+  // wrong star in a dense cluster.
+  ray.params.Points.threshold = Math.max(0.4, cam.sph.radius * 0.013);
   mv.set((mx/innerWidth)*2-1,-(my/innerHeight)*2+1);
   ray.setFromCamera(mv,camera);
   // Check Sol mesh first — recursive:true catches the invisible hit-zone child
@@ -1120,14 +1114,14 @@ function openD(s){
   const isSol = s.dist_ly === 0 || (s.name && s.name.toLowerCase() === 'sol');
   $('dr-solar').style.display = isSol ? '' : 'none';
 
-  // Exoplanet system button — look up by HIP number, then HD number, then name
-  // HIP/HD are catalog-standard — bridges NASA abbreviated names and HYG full names
-  const exoEntry = (s.hip  && exoHosts.get(s.hip))       // bare HIP number "70890"
-                || (s.hd   && exoHosts.get('HD'+s.hd))   // "HD22049"
-                || exoHosts.get(s.name)
-                || exoHosts.get(s.proper||'');
+  // Exoplanet system button — look up by HIP number, then HD number, then name.
+  // Guard against binary component bleed: only use name fallback if name has no A/B/C suffix.
+  const exoEntry = (s.hip  && exoHosts.get(s.hip))
+                || (s.hd   && exoHosts.get('HD'+s.hd))
+                || (s.name   && !/ [ABC]$/.test(s.name)   ? exoHosts.get(s.name)   : null)
+                || (s.proper && !/ [ABC]$/.test(s.proper) ? exoHosts.get(s.proper) : null);
   if(exoEntry && !isSol){
-    $('btn-exo').textContent = `⬡ View ${exoEntry.count} Planet${exoEntry.count>1?'s':''} — ${s.name}`;
+    $('btn-exo').textContent = `⬡ ${s.name} System`;
     $('btn-exo').dataset.host   = exoEntry.hostName;
     $('btn-exo').dataset.hip    = s.hip    || '';
     $('btn-exo').dataset.hd     = s.hd     || '';
@@ -1142,7 +1136,7 @@ function openD(s){
       .then(r=>{ const ct=r.headers.get('content-type')||''; return ct.includes('json')?r.json():null; })
       .then(planets=>{
         if(planets && planets.length){
-          $('btn-exo').textContent = `⬡ View ${planets.length} Planet${planets.length>1?'s':''} — ${s.name}`;
+          $('btn-exo').textContent = `⬡ ${s.name} System`;
           $('btn-exo').dataset.host   = s.name;
           $('btn-exo').dataset.hip    = s.hip    || '';
           $('btn-exo').dataset.hd     = s.hd     || '';
