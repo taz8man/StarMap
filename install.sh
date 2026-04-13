@@ -111,10 +111,10 @@ step 4 "Download HYG Star Catalog (~14 MB)"
 
 HYG_DEST="$INSTALL_DIR/static/data/hyg.csv"
 HYG_DOWNLOADED=0
-HYG_URL="https://codeberg.org/astronexus/hyg/media/branch/main/data/athyg_v3/hyglike_from_athyg_v32.csv.gz"
+HYG_URL="https://codeberg.org/astronexus/hyg/media/branch/main/data/hyg/CURRENT/hyg_v42.csv.gz"
 HYG_TMP_GZ="/tmp/hyg_install.csv.gz"
 
-info "Downloading hyglike_from_athyg_v32.csv.gz (~3 MB compressed)..."
+info "Downloading hyg_v42.csv.gz (~5 MB compressed)..."
 if curl -L --retry 2 --retry-delay 3 --max-time 120 --progress-bar \
         -A "$UA" \
         -H "Accept: application/octet-stream,*/*" \
