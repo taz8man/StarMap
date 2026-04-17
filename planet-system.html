@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="icon" type="image/x-icon" href="/images/Galactic.ico">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Moon System Viewer</title>
@@ -81,6 +82,19 @@ body{background:var(--bg);color:var(--ptx);font-family:'Space Mono',monospace;ov
     <div class="dr"><span class="lb">Orbit     </span><span id="dp-orb"></span></div>
     <div class="dr"><span class="lb">Period    </span><span id="dp-per"></span></div>
     <div class="dr"><span class="lb">Moons     </span><span id="dp-moons"></span></div>
+    <!-- Texture upload -->
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(0,0,0,0.08)">
+      <div style="font-size:var(--fs-sm);color:var(--pdm);margin-bottom:6px">Surface Map</div>
+      <label id="tex-label" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+        padding:6px 12px;border-radius:10px;font-size:var(--fs-sm);font-family:'Space Mono',monospace;
+        background:rgba(0,102,204,0.18);color:#003388;border:1.5px solid rgba(0,102,204,0.40);
+        transition:filter .15s">
+        🌍 Upload Map
+        <input type="file" id="tex-input" accept="image/*" style="display:none">
+      </label>
+      <span id="tex-name" style="display:block;font-size:calc(var(--fs)*0.78);color:var(--pdm);margin-top:4px">No map loaded · equirectangular PNG/JPG</span>
+      <a id="tex-clear" href="#" style="display:none;font-size:calc(var(--fs)*0.78);color:#cc4444;margin-top:2px;text-decoration:none">✕ Remove texture</a>
+    </div>
   </div>
 
   <!-- Moon rows -->
@@ -286,6 +300,64 @@ function makeBodyMesh(r_vis,color){
   );
 }
 
+// ── PLANET TEXTURE & SPIN ─────────────────────────────────────────────────────
+let planetMeshRef = null;   // set after buildScene
+let planetSpinAngle = 0;
+const PLANET_SPIN_RATE = 0.08; // radians per sim-day (slow, decorative)
+let planetBaseColor = '#2266aa';
+let planetHasTexture = false;
+
+function applyPlanetTexture(file){
+  if(!planetMeshRef) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = ()=>{
+    // Draw into a canvas so Three.js can use it as a CanvasTexture
+    const oc = document.createElement('canvas');
+    oc.width = img.naturalWidth; oc.height = img.naturalHeight;
+    oc.getContext('2d').drawImage(img, 0, 0);
+    const tex = new THREE.CanvasTexture(oc);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.needsUpdate = true;
+    planetMeshRef.material = new THREE.MeshPhongMaterial({
+      map: tex,
+      specular: new THREE.Color(0.05, 0.05, 0.08),
+      shininess: 20
+    });
+    planetHasTexture = true;
+    $('tex-name').textContent = file.name;
+    $('tex-clear').style.display = 'block';
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+
+function clearPlanetTexture(){
+  if(!planetMeshRef) return;
+  const col = parseInt(planetBaseColor.slice(1),16)||0x2266aa;
+  const c = new THREE.Color(col);
+  const dark = new THREE.Color(c.r*.28, c.g*.28, c.b*.28+.04);
+  planetMeshRef.material = new THREE.MeshPhongMaterial({
+    color: dark, emissive: dark.clone().multiplyScalar(.35),
+    specular: new THREE.Color(.08,.08,.12), shininess: 25
+  });
+  planetHasTexture = false;
+  $('tex-name').textContent = 'No map loaded · equirectangular PNG/JPG';
+  $('tex-clear').style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  $('tex-input').addEventListener('change', e=>{
+    const f = e.target.files[0]; if(!f) return;
+    applyPlanetTexture(f);
+    e.target.value = ''; // allow re-upload of same file
+  });
+  $('tex-clear').addEventListener('click', e=>{
+    e.preventDefault();
+    clearPlanetTexture();
+  });
+});
+
 // ── LIGHTING ─────────────────────────────────────────────────────────────────
 scene.add(new THREE.AmbientLight(0xf0ede6,.4));
 const bodyLight=new THREE.PointLight(0xffeedd,1.5,30);
@@ -452,11 +524,13 @@ function buildFallback(){
 
 function buildPlanet(name, r_vis){
   const col = parseInt(TARGET_COLOR.slice(1),16)||0x2266aa;
+  planetBaseColor = TARGET_COLOR;
   const mesh = new THREE.Mesh(
     new THREE.SphereGeometry(r_vis,32,22),
     new THREE.MeshBasicMaterial({color:col})
   );
   scene.add(mesh);
+  planetMeshRef = mesh;
   const lbl = makeLabel(name, TARGET_COLOR);
   scene.add(lbl);
   return {mesh, label:lbl};
@@ -629,6 +703,12 @@ function animate(){
   lastT=now;
 
   if(playing) simDays+=simSpeed*dt;
+
+  // Spin planet on its axis when textured
+  if(planetMeshRef && planetHasTexture && playing){
+    planetSpinAngle += PLANET_SPIN_RATE * simSpeed * dt;
+    planetMeshRef.rotation.y = planetSpinAngle;
+  }
 
   cam.update();
 

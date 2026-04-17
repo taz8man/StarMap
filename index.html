@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="icon" type="image/x-icon" href="/images/Galactic.ico">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Local Galactic Neighborhood — 120 LY</title>
@@ -255,6 +256,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:calc(var(-
   </div>
   <div id="dr-solar" style="display:none;margin-top:6px">
     <button id="btn-solar" class="dp-btn dp-btn-solar">☀ Sol System</button>
+  </div>
+  <div id="dr-stellar" style="display:none;margin-top:6px">
+    <button id="btn-stellar" class="dp-btn dp-btn-stellar">⬡ Star System</button>
   </div>
   <div id="dr-exo" style="display:none;margin-top:6px">
     <button id="btn-exo" class="dp-btn dp-btn-exo">⬡ Planets</button>
@@ -694,7 +698,8 @@ let dMax=120,mMax=15,showL=true;
 const sv={OB:true,A:true,F:true,G:true,K:true,M:false,D:true,X:true};
 
 // Exoplanet host index: Map of star name → planet count (populated after catalog load)
-let exoHosts   = new Map(); // name → {count, hostName for URL}
+let exoHosts   = new Map(); // hip/hd/name → {count, hostName for URL}
+let multiStarGroups = new Map(); // hip → [{star}, ...] — systems with 2+ main-seq members
 let exoCsvText = '';        // raw CSV text — cached for WB panel use
 let wbPlanetHips = new Set(); // HIP numbers of stars with user-created planets
 
@@ -748,6 +753,134 @@ const LNAMES=new Set([
   '70 oph','ros 128','del pav','eta cas',
 ]);
 
+// ── MULTI-STAR SYSTEM GROUPING ────────────────────────────────────────────────
+// Groups stars within 0.03 pc (~6000 AU) of each other into systems.
+// Excludes white dwarfs (D*), brown dwarfs (L/T/Y), and companions > 10,000 AU.
+// Populates multiStarGroups: Map<hip → {primary, rendered:[], excluded:[]}>
+function buildMultiStarGroups(stars){
+  multiStarGroups.clear();
+
+  const MAX_DIST_SPREAD = 0.05; // pc sanity check
+  const MAX_AU          = 10000;
+  const AU_PER_PC       = 206265;
+
+  // Supplement: known binary HIP pairs whose companions have no gl/base entry
+  const HIP_SUPPLEMENT = [
+    ['116727','117094'], // Gamma Cephei A+B   (planet around A)
+    ['10138', '10161'],  // Gliese 86 A + WD B (planet around A)
+    ['43587', '43711'],  // 55 Cancri A+B      (5 planets around A)
+  ];
+
+  // Strip trailing component letter(s) from Gliese number
+  // "Gl 559A" → "Gl 559",  "GJ 15A" → "GJ 15"
+  function glRoot(gl){
+    if(!gl||gl.trim()==='') return '';
+    return gl.trim().replace(/\s*[A-Z]+$/i,'').trim();
+  }
+
+  function isExcluded(spect){
+    const s=(spect||'').trim().toUpperCase();
+    if(s.startsWith('D')) return 'White dwarf';
+    if(s.startsWith('L')||s.startsWith('T')||s.startsWith('Y')) return 'Brown dwarf';
+    return null;
+  }
+
+  // ── Group by base column (HYG v4.2), fall back to gl root (AT-HYG) ─────────
+  const byKey = new Map();
+  stars.forEach(s=>{
+    // Prefer base column; fall back to gl root
+    const key = (s._base && s._base!=='') ? s._base : glRoot(s.gl);
+    if(!key) return;
+    if(!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(s);
+  });
+
+  // ── Add supplement pairs to byKey ────────────────────────────────────────
+  const byHip = new Map();
+  stars.forEach(s=>{ if(s.hip) byHip.set(s.hip, s); });
+
+  HIP_SUPPLEMENT.forEach(([hipA, hipB])=>{
+    const a = byHip.get(hipA), b = byHip.get(hipB);
+    if(!a) return; // primary not in catalog — nothing to do
+    if(b){
+      // Both stars present — add to byKey for normal processing
+      const key = 'SUPP:'+hipA+'+'+hipB;
+      if(!byKey.has(key)) byKey.set(key, []);
+      const grp = byKey.get(key);
+      if(!grp.find(s=>s===a)) grp.push(a);
+      if(!grp.find(s=>s===b)) grp.push(b);
+    } else {
+      // Companion filtered out (bad dist / beyond 120 ly) — create minimal entry
+      // so the primary still gets a ⬡ Star System button with an exclusion note
+      if(!multiStarGroups.has(hipA)){
+        const entry={
+          primary:a,
+          rendered:[a],
+          excluded:[{star:{name:'Companion (HIP '+hipB+')',spect:'?'},
+            reason:'Catalog distance unreliable — not loaded'}]
+        };
+        multiStarGroups.set(hipA, entry);
+      }
+    }
+  });
+
+  // ── Process each group ────────────────────────────────────────────────────
+  byKey.forEach((members, key)=>{
+    if(members.length < 2) return;
+
+    // Sanity: all members within 0.05 pc of each other
+    // Skip for supplement pairs — wider binaries have real parallax differences
+    if(!key.startsWith('SUPP:')){
+      const dists = members.map(s=>s._distpc).filter(d=>d>0);
+      if(dists.length >= 2){
+        if(Math.max(...dists)-Math.min(...dists) > MAX_DIST_SPREAD) return;
+      }
+    }
+
+    // Sort by brightness — lowest absmag = primary
+    members.sort((a,b)=>(isFinite(a.absmag)?a.absmag:99)-(isFinite(b.absmag)?b.absmag:99));
+    const primary = members[0];
+    if(!primary.hip) return;
+
+    const rendered = [];
+    const excluded = [];
+
+    members.forEach(s=>{
+      const excReason = isExcluded(s.spect);
+      // Separation from primary in AU
+      let sepAU = 0;
+      if(s._rawX!==undefined && primary._rawX!==undefined &&
+         (s._rawX!==0||s._rawY!==0||s._rawZ!==0)){
+        const dx=s._rawX-primary._rawX,dy=s._rawY-primary._rawY,dz=s._rawZ-primary._rawZ;
+        sepAU = Math.sqrt(dx*dx+dy*dy+dz*dz)*AU_PER_PC;
+      } else if(s._distpc>0 && primary._distpc>0){
+        sepAU = Math.abs(s._distpc-primary._distpc)*AU_PER_PC;
+      }
+
+      if(excReason){
+        excluded.push({star:s, reason:excReason});
+      } else if(sepAU>MAX_AU && sepAU>0){
+        excluded.push({star:s,
+          reason:Math.round(sepAU).toLocaleString()+' AU — gravitationally marginal'});
+      } else {
+        rendered.push(s);
+      }
+    });
+
+    // Store if 2+ rendered OR 1 rendered + 1+ excluded (e.g. Sirius A + WD B)
+    if(rendered.length>=1 && (rendered.length>=2 || excluded.length>=1)){
+      const entry={primary:rendered[0]||primary, rendered, excluded};
+      rendered.forEach(s=>{ if(s.hip) multiStarGroups.set(s.hip, entry); });
+      if(primary.hip && !multiStarGroups.has(primary.hip)){
+        multiStarGroups.set(primary.hip, entry);
+      }
+    }
+  });
+
+  const sysCount = new Set([...multiStarGroups.values()]).size;
+  console.info('[multi-star] '+sysCount+' systems, '+multiStarGroups.size+' HIP entries');
+}
+
 function buildStars(stars){
   if(cPts){scene.remove(cPts);cPts.geometry.dispose();}
   if(gPts){scene.remove(gPts);gPts.geometry.dispose();}
@@ -795,7 +928,8 @@ function buildStars(stars){
       LNAMES.has(bfn) ||
       (s.mag < 2.5 && s.dist_ly < 60) ||
       (s.dist_ly > 0 && s.dist_ly < 5) ||  // everything within 5 ly always labelled
-      hasExo                                 // all NASA exoplanet host stars
+      hasExo ||                              // NASA exoplanet host stars
+      !!(s.hip && multiStarGroups.get(s.hip)) // multi-star system members
     );
     if(wantLabel){
       // Prefer proper name, then bf, then best catalog ID
@@ -822,11 +956,23 @@ function buildStars(stars){
                   || (s.hd  && exoHosts.get('HD'+s.hd))
                   || nmExact
                   || properExact;
-    const hasUserPlanets = s.hip && wbPlanetHips.has(String(s.hip));
-    const showRing = exoEntry || hasUserPlanets;
-    if(showRing){
-      // Green if NASA planets exist (with or without user planets), blue if user-only
-      const ringColor = exoEntry ? 0x00dd88 : 0x4499ff;
+    const hasUserPlanets  = s.hip && wbPlanetHips.has(String(s.hip));
+    const hasNASAPlanets  = !!exoEntry;
+    const hasMultiStar    = !!(s.hip && multiStarGroups.get(s.hip));
+
+    // ── Ring color priority ──────────────────────────────────────────────────
+    // Planets take priority over multi-star indicator.
+    // NASA + user → Green   (richest data)
+    // NASA only   → Blue    (verified catalog data)
+    // User only   → Purple  (worldbuilding)
+    // Multi-star  → Amber   (no planets, but binary/triple system)
+    let ringColor = null;
+    if(hasNASAPlanets && hasUserPlanets) ringColor = 0x00dd88; // green
+    else if(hasNASAPlanets)             ringColor = 0x1188ff; // bold blue
+    else if(hasUserPlanets)             ringColor = 0xaa66ff; // purple
+    else if(hasMultiStar)               ringColor = 0xffaa00; // amber
+
+    if(ringColor !== null){
       const ringGeo = new THREE.RingGeometry(sz*0.018+0.18, sz*0.018+0.26, 18);
       const ringMat = new THREE.MeshBasicMaterial({
         color:ringColor, transparent:true, opacity:0.75,
@@ -1114,6 +1260,51 @@ function openD(s){
   const isSol = s.dist_ly === 0 || (s.name && s.name.toLowerCase() === 'sol');
   $('dr-solar').style.display = isSol ? '' : 'none';
 
+  // Multi-star system button
+  const sysGroup = s.hip ? multiStarGroups.get(s.hip) : null;
+  if(sysGroup && !isSol){
+    $('dr-stellar').style.display = '';
+    $('btn-stellar').onclick = ()=>{
+      const base = window.location.href.replace(/\/[^\/]*$/,'/');
+      const p = new URLSearchParams();
+      sysGroup.rendered.forEach((m,i)=>{
+        p.set('s'+(i+1)+'_hip',   m.hip||'');
+        p.set('s'+(i+1)+'_name',  m.name||'');
+        p.set('s'+(i+1)+'_spect', m.spect||'');
+        p.set('s'+(i+1)+'_absmag',isFinite(m.absmag)?m.absmag:'');
+        p.set('s'+(i+1)+'_dist',  m.dist_ly||0);
+        // Pass equatorial coords (pc) if available, else scene coords (LY) with flag
+        if(m._rawX!==undefined){
+          p.set('s'+(i+1)+'_x', m._rawX);
+          p.set('s'+(i+1)+'_y', m._rawY);
+          p.set('s'+(i+1)+'_z', m._rawZ);
+          p.set('s'+(i+1)+'_ctype', 'pc');
+        } else {
+          p.set('s'+(i+1)+'_x', m.x);
+          p.set('s'+(i+1)+'_y', m.y);
+          p.set('s'+(i+1)+'_z', m.z);
+          p.set('s'+(i+1)+'_ctype', 'ly');
+        }
+        // Flag if this star has exoplanets
+        const hasExo = !!(exoHosts.get(m.hip)||exoHosts.get('HD'+m.hd)||wbPlanetHips.has(String(m.hip)));
+        p.set('s'+(i+1)+'_exo',   hasExo?'1':'0');
+      });
+      // Excluded members
+      if(sysGroup.excluded.length){
+        const excStr = sysGroup.excluded.map(e=>
+          encodeURIComponent(e.star.name||'Unknown')+':'+
+          encodeURIComponent(e.star.spect||'?')+':'+
+          encodeURIComponent(e.reason)
+        ).join('|');
+        p.set('excluded', excStr);
+      }
+      p.set('count', sysGroup.rendered.length);
+      window.open(base+'stellar-system.html?'+p.toString(),'_blank','noopener');
+    };
+  } else {
+    $('dr-stellar').style.display = 'none';
+  }
+
   // Exoplanet system button — look up by HIP number, then HD number, then name.
   // Guard against binary component bleed: only use name fallback if name has no A/B/C suffix.
   const exoEntry = (s.hip  && exoHosts.get(s.hip))
@@ -1323,7 +1514,9 @@ function parseHYGText(txt){
   const mi = col('mag','vmag','visual_mag','v_mag');
   const ai = col('absmag','abs_mag','absolute_mag','absmag_v');
   const ci2= col('ci','color_index','b_v','bv');
-  const lumi= col('lum','luminosity','lum_v');
+  const lumi  = col('lum','luminosity','lum_v');
+  const basei = col('base');
+  const dpci  = col('dist','distance','dist_pc');
 
   // Report which critical columns are missing
   if(di<0||xi<0||yi<0||zi<0){
@@ -1396,7 +1589,10 @@ function parseHYGText(txt){
         if(!isFinite(am)) return null;
         const bc = bcForSpect(sp);
         return Math.pow(10,(4.83-(am+bc))/2.5);
-      })()});
+      })(),
+      _rawX: xp, _rawY: yp, _rawZ: zp,
+      _base:   basei>=0?(p[basei]||'').trim().replace(/^"|"$/g,''):'',
+      _distpc: dpci>=0?parseFloat(p[dpci])||0:0});
   }
   if(stars.length<100)throw new Error('only '+stars.length+' stars parsed — file may be truncated');
   return stars;
@@ -1409,7 +1605,7 @@ async function tryLiveFetch(){
   // the page is served from a .local hostname.
   const LOCAL='/static/data/hyg.csv';
 
-  $('ds').innerHTML='CATALOG: checking local cache… <span style="opacity:.5">· v0.9.6</span>';
+  $('ds').innerHTML='CATALOG: checking local cache… <span style="opacity:.5">· v1.2</span>';
 
   try{
     // HEAD request first — fast check whether the file exists at all
@@ -1418,7 +1614,7 @@ async function tryLiveFetch(){
 
     const bytes=parseInt(head.headers.get('content-length')||'0');
     const mb=(bytes/1048576).toFixed(1);
-    $('ds').innerHTML='CATALOG: downloading from local cache'+(bytes?' ('+mb+' MB)':'')+'… <span style="opacity:.5">· v0.9.6</span>';
+    $('ds').innerHTML='CATALOG: downloading from local cache'+(bytes?' ('+mb+' MB)':'')+'… <span style="opacity:.5">· v1.2</span>';
 
     const ctrl=new AbortController();
     const tid=setTimeout(()=>ctrl.abort(),60000); // 60s for large file on slow network
@@ -1426,7 +1622,7 @@ async function tryLiveFetch(){
     clearTimeout(tid);
     if(!r.ok) throw new Error('HTTP '+r.status);
 
-    $('ds').innerHTML='CATALOG: parsing star data… <span style="opacity:.5">· v0.9.6</span>';
+    $('ds').innerHTML='CATALOG: parsing star data… <span style="opacity:.5">· v1.2</span>';
     const txt=await r.text();
 
     if(!txt.includes('proper')||txt.length<50000)
@@ -1434,14 +1630,15 @@ async function tryLiveFetch(){
 
     const stars=parseHYGText(txt);
     allStars=stars;
+    buildMultiStarGroups(allStars);
     buildStars(allStars);
-    $('ds').innerHTML='HYG CATALOG LOADED · '+stars.length.toLocaleString()+' STARS WITHIN 120 LY <span style="opacity:.5">· v0.9.6</span>';
+    $('ds').innerHTML='HYG CATALOG LOADED · '+stars.length.toLocaleString()+' STARS WITHIN 120 LY <span style="opacity:.5">· v1.2</span>';
     console.info('[catalog] Loaded '+stars.length+' stars from local cache');
 
   }catch(e){
     // Show a clear, permanent message so the user knows exactly what happened
     const msg=e.message||String(e);
-    $('ds').innerHTML='⚠ CATALOG ERROR: '+msg+' — run: sudo bash update-catalog.sh <span style="opacity:.5">· v0.9.6</span>';
+    $('ds').innerHTML='⚠ CATALOG ERROR: '+msg+' — run: sudo bash update-catalog.sh <span style="opacity:.5">· v1.2</span>';
     $('ds').style.color='#cc6600';
     $('ds').style.fontWeight='bold';
     $('ds').title=msg; // full message on hover
@@ -1628,13 +1825,39 @@ animate();
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 ss('Loading embedded catalog…',20);
+// HIP numbers for embedded catalog stars that are part of binary systems
+// Needed so the stellar-system viewer can link to exoplanet viewer
+const EMBEDDED_HIP = {
+  'Sirius':             '32349',
+  'Sirius B':           '32349', // same system, no separate HIP in AT-HYG
+  'Procyon':            '37279',
+  'Procyon B':          '37279',
+  'Alpha Centauri A':   '71683',
+  'Alpha Centauri B':   '71681',
+  'Rigil Kentaurus':    '71683',
+  'Toliman':            '71681',
+  'Groombridge 34 A':   '1475',
+  'Groombridge 34 B':   '1475',
+  '61 Cygni A':         '104214',
+  '61 Cygni B':         '104217',
+  'Struve 2398 A':      '99461',
+  'Struve 2398 B':      '99461',
+  'Eta Cassiopeiae A':  '3821',
+  'Eta Cassiopeiae B':  '3821',
+  '70 Ophiuchi A':      '88601',
+  '70 Ophiuchi B':      '88601',
+  '40 Eridani A':       '19849',
+  '40 Eridani B':       '19849',
+  '40 Eridani C':       '19849',
+};
+
 allStars=RAW_STARS.map(r=>({
   name:r[0],spect:r[1],dist_ly:r[2],
   x:r[3],y:r[4],z:r[5],
   mag:r[6],absmag:r[7],ci:r[8],
   sc:specClass(r[1]),
-  proper:r[0],  // embedded catalog names are already the display names
-  bf:'',hip:'',hd:'',hr:'',gl:'',
+  proper:r[0],
+  bf:'',hip:EMBEDDED_HIP[r[0]]||'',hd:'',hr:'',gl:'',
   altNames: (()=>{
     // Embedded catalog uses colloquial names already.
     // altNames = the IAU official name for stars that have one.
@@ -1653,8 +1876,8 @@ allStars=RAW_STARS.map(r=>({
   })(),
 }));
 ss('Building scene…',60);
+buildMultiStarGroups(allStars);
 buildStars(allStars);
-ss('Ready — '+allStars.length+' stars',100);
 setTimeout(()=>{
   const ld=$('ld');ld.style.opacity='0';
   setTimeout(()=>ld.style.display='none',900);

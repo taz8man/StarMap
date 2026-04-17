@@ -53,6 +53,7 @@ mkdir -p "$INSTALL_DIR/static/js"
 mkdir -p "$INSTALL_DIR/static/css"
 mkdir -p "$INSTALL_DIR/static/fonts"
 mkdir -p "$INSTALL_DIR/static/data"
+mkdir -p "$INSTALL_DIR/images"
 mkdir -p "$INSTALL_DIR/api"
 mkdir -p "$INSTALL_DIR/data"
 ok "Directory structure created"
@@ -185,7 +186,7 @@ fi
 step 6 "Install App Files & Configure nginx"
 
 # HTML pages
-for page in index.html solar-system.html exoplanet-system.html planet-system.html; do
+for page in index.html solar-system.html exoplanet-system.html planet-system.html stellar-system.html; do
     if [ -f "$SCRIPT_DIR/$page" ]; then
         cp "$SCRIPT_DIR/$page" "$INSTALL_DIR/$page"
         ok "$page installed"
@@ -215,6 +216,12 @@ for script in update-catalog.sh update-exoplanets.sh update-data.sh update.sh; d
     fi
 done
 ok "Update scripts installed"
+
+# Images (favicon etc.)
+if [ -d "$SCRIPT_DIR/images" ]; then
+    cp -r "$SCRIPT_DIR/images/." "$INSTALL_DIR/images/"
+    ok "Images installed"
+fi
 
 chown -R www-data:www-data "$INSTALL_DIR"
 chmod -R 755 "$INSTALL_DIR"

@@ -1,29 +1,30 @@
 # Local Galactic Neighborhood — User Guide
 
-**Version 1.0** · A complete reference for all features.
+**Version 1.2** · A complete reference for all features.
 
 ---
 
 ## Contents
 
 1. [Galactic Neighborhood Map](#1-galactic-neighborhood-map)
-2. [Exoplanet System Viewer](#2-exoplanet-system-viewer)
-3. [Solar System Viewer](#3-solar-system-viewer)
-4. [Moon System Viewer](#4-moon-system-viewer)
-5. [Worldbuilding Panel — Star Tab](#5-worldbuilding-panel--star-tab)
-6. [Worldbuilding Panel — Planets Tab](#6-worldbuilding-panel--planets-tab)
-7. [Worldbuilding Panel — Moons Tab](#7-worldbuilding-panel--moons-tab)
-8. [Worldbuilding Panel — Universe Tab](#8-worldbuilding-panel--universe-tab)
-9. [Planet Rings & Indicators](#9-planet-rings--indicators)
-10. [Habitable Zone](#10-habitable-zone)
-11. [Data & Catalogs](#11-data--catalogs)
-12. [Controls Reference](#12-controls-reference)
+2. [Multi-Star System Viewer](#2-multi-star-system-viewer)
+3. [Exoplanet System Viewer](#3-exoplanet-system-viewer)
+4. [Solar System Viewer](#4-solar-system-viewer)
+5. [Moon System Viewer](#5-moon-system-viewer)
+6. [Worldbuilding Panel — Star Tab](#6-worldbuilding-panel--star-tab)
+7. [Worldbuilding Panel — Planets Tab](#7-worldbuilding-panel--planets-tab)
+8. [Worldbuilding Panel — Moons Tab](#8-worldbuilding-panel--moons-tab)
+9. [Worldbuilding Panel — Universe Tab](#9-worldbuilding-panel--universe-tab)
+10. [Planet Rings & Indicators](#10-planet-rings--indicators)
+11. [Habitable Zone](#11-habitable-zone)
+12. [Data & Catalogs](#12-data--catalogs)
+13. [Controls Reference](#13-controls-reference)
 
 ---
 
 ## 1. Galactic Neighborhood Map
 
-The main view. Every catalogued star within 120 light years of Sol rendered in true galactic coordinates using real HYG catalog data.
+The main view. Every catalogued star within 120 light years of Sol rendered in true galactic coordinates using real HYG v4.2 catalog data.
 
 ### Navigation
 
@@ -51,26 +52,78 @@ Appears when you click a star. Shows name, alternate names, catalog IDs, distanc
 |---|---|---|
 | ⬡ Wikipedia | Blue | Opens Wikipedia article |
 | ☀ Sol System | Amber | Opens solar system viewer (Sol only) |
-| ⬡ [Name] System | Green | Opens exoplanet system viewer |
+| ⬡ Star System | Orange | Opens multi-star system viewer |
+| ⬡ Planets | Green/Blue | Opens exoplanet system viewer |
 | ✎ Notes | Purple | Opens worldbuilding panel |
 
 ### Search Bar (bottom-center)
 
 Type any star name, designation, or catalog number. Results open upward. Click to fly to that star.
 
-### Planet Rings
+### Planet & System Rings
 
-Stars with planets show colored rings:
-- **Green ring** — confirmed NASA exoplanets
-- **Blue ring** — user-created planets only
+Stars display colored rings indicating their status:
 
-Stars with green rings always get name labels, regardless of distance or brightness.
+| Ring | Color | Meaning |
+|---|---|---|
+| 🟢 Green | `#00dd88` | NASA confirmed + user-created planets |
+| 🔵 Blue | `#1188ff` | NASA confirmed planets only |
+| 🟣 Purple | `#aa66ff` | User-created planets only |
+| 🟡 Amber | `#ffaa00` | Multi-star system, no planets |
+
+Planet rings take priority over the amber multi-star ring. Stars with any ring always show name labels regardless of distance or brightness.
 
 ---
 
-## 2. Exoplanet System Viewer
+## 2. Multi-Star System Viewer
 
-Opens in a new tab from **⬡ [Name] System**. Shows confirmed exoplanets and user-created planets orbiting their host star in 3D with Keplerian orbital mechanics.
+Opens in a new tab from **⬡ Star System** on any star that is part of a binary or multiple star system. Shows 2–4 stars at true relative scale with connecting lines and separation distances.
+
+### What's Shown
+
+- All renderable member stars positioned in true relative scale (1 scene unit = mean pairwise separation)
+- Stars colored by spectral type with glow halos and dark-tinted labels
+- A connecting line between stars with the AU separation labeled at the midpoint
+
+### Navigation
+
+Left-drag to orbit, right-drag to pan, scroll to zoom.
+
+### System Overview Panel (bottom-left)
+
+Lists every member of the system:
+- **Rendered stars** — spectral type, luminosity, separation from primary, planet indicator
+- **NOT SHOWN** — excluded members with reason:
+  - *White dwarf* — excluded by default
+  - *Brown dwarf* — excluded by default
+  - *N AU — gravitationally marginal* — separation > 10,000 AU
+  - *Catalog distance unreliable — not loaded* — bad parallax in catalog
+
+Clicking a star row in the panel selects that star and opens its detail panel.
+
+### Star Detail Panel (right)
+
+Click any star in the scene to open its DP:
+- Spectral type, Abs Mag, Luminosity
+- Separation from primary in AU
+- Habitable Zone range in AU
+- **⬡ Planets** button — if the star has NASA or user-created planets
+- **✎ Notes** button — opens worldbuilding panel for that star
+
+### Multi-Star System Detection
+
+Systems are identified by matching Gliese catalog root numbers (`base` column in HYG v4.2). Stars sharing the same base Gliese number with distances within 0.05 pc of each other are grouped. A supplement table covers known planet-hosting binaries whose companions lack Gliese numbers in the catalog (Gamma Cephei, Gliese 86, 55 Cancri).
+
+**Exclusion rules:**
+- White dwarfs (spectral D) — noted but not rendered
+- Brown dwarfs (spectral L/T/Y) — noted but not rendered
+- Companions > 10,000 AU separation — noted but not rendered
+
+---
+
+## 3. Exoplanet System Viewer
+
+Opens in a new tab from **⬡ Planets**. Shows confirmed exoplanets and user-created planets orbiting their host star in 3D with Keplerian orbital mechanics.
 
 ### Navigation
 
@@ -83,50 +136,35 @@ Left-drag to orbit, right-drag to pan, scroll to zoom.
 
 ### Detail Panel
 
-**Click the host star** → shows Distance, Spectral type, Abs Mag, Luminosity, Habitable Zone, planet count. Button: **✎ Notes** opens WB panel on Star tab.
+**Click the host star** → Distance, Spectral type, Abs Mag, Luminosity, Habitable Zone, planet count. Button: **✎ Notes** opens WB panel on Star tab.
 
-**Click a planet** → shows Type, Orbit (AU), Period, Radius, Mass, Eq. Temperature, Discovery. Buttons: **⬡ Wikipedia**, **⬡ Moons**, **✎ Notes**.
+**Click a planet** → Type, Orbit (AU), Period, Radius, Mass, Eq. Temperature, Discovery. Buttons: **⬡ Wikipedia**, **⬡ Moons**, **✎ Notes**.
 
 ### Habitable Zone
 
-A faint green band in the orbital plane shows the conservative habitable zone (Kopparapu 2013). See [Section 10](#10-habitable-zone) for details.
+A faint green band in the orbital plane shows the conservative habitable zone (Kopparapu 2013).
 
 ---
 
-## 3. Solar System Viewer
+## 4. Solar System Viewer
 
 Opens from Sol's detail panel. Shows the 8 planets with accurate orbital periods. Same navigation controls.
 
-**Click a planet** → shows type, diameter, mass, day length, year length, moon count. For planets with moons, a **⬡ Moons** button opens the moon viewer.
-
-**Click a moon** (visible in the scene) → shows satellite info and Wikipedia link.
+**Click a planet** → type, diameter, mass, day/year length, moon count. **⬡ Moons** opens the moon viewer.
 
 ---
 
-## 4. Moon System Viewer
+## 5. Moon System Viewer
 
 Opens from **⬡ Moons** in either the exoplanet viewer or solar system viewer. Shows moons orbiting a planet with Keplerian orbital mechanics.
 
 ### Known Moons Catalog
 
-Pre-loaded with major moons of solar system planets:
+Pre-loaded with major moons of solar system planets (Earth, Mars, Jupiter, Saturn, Uranus, Neptune). User-created moons appear alongside catalog moons.
 
-| Planet | Moons included |
-|---|---|
-| Earth | Moon |
-| Mars | Phobos, Deimos |
-| Jupiter | Io, Europa, Ganymede, Callisto |
-| Saturn | Mimas, Enceladus, Tethys, Dione, Rhea, Titan, Iapetus |
-| Uranus | Miranda, Ariel, Umbriel, Titania, Oberon |
-| Neptune | Proteus, Triton, Nereid |
+### Surface Map Upload
 
-User-created moons (added via WB panel Moons tab) appear alongside catalog moons.
-
-### Detail Panel
-
-**Click the planet** → Type, diameter, orbit, period, moon count.
-
-**Click a moon** → Type (Large/Mid/Small/Moonlet), Orbit in planet radii (Rp) and km, Period, Radius, Atmosphere, Wikipedia link (known moons). **✎ Notes** button opens WB panel.
+Click the **planet body** to open its detail panel. At the bottom of the panel a **Surface Map** section lets you upload an equirectangular texture image (PNG or JPG, ideally 2:1 ratio — e.g. 2048×1024 or 4096×2048). NASA's Solar System texture maps work perfectly. Once loaded the planet renders with the texture and slowly spins on its axis. Use **✕ Remove texture** to revert to flat color. Textures are session-only.
 
 ### Playback Controls
 
@@ -134,61 +172,31 @@ Same glass panel as exoplanet viewer — ⏸/▶ and speed slider.
 
 ---
 
-## 5. Worldbuilding Panel — Star Tab
+## 6. Worldbuilding Panel — Star Tab
 
-Opens from **✎ Notes** on any star. Three tabs in the main map (Star, Universe, Planets) and four tabs in the exoplanet viewer (Star, Universe, Planets, Moons).
+Opens from **✎ Notes** on any star in any viewer. Four tabs: Star, Universe, Planets, Moons.
 
 ### HYG Catalog Reference Box (read-only)
 
-Auto-populated from the star catalog: Spectral type, Distance, Abs Mag, Luminosity, HIP/HD numbers, Habitable Zone AU range.
+Auto-populated: Spectral type, Distance, Abs Mag, Luminosity, HIP/HD numbers, Habitable Zone AU range.
 
 ### Editable Fields
 
-| Field | Description |
-|---|---|
-| Fictional Name | Your worldbuilding name for this star |
-| Common Name | Short colloquial name |
-| Significance | NONE / MINOR / MAJOR / CRITICAL |
-| First Contact Era | Links to eras defined in Universe tab |
-| Plot Notes | Free-text narrative notes |
-| Internal Notes | GM/author-only notes |
-
-### Tags
-
-Color-coded tags to classify stars. Add via the tag input, remove with ✕.
-
-### Era Control
-
-Records which faction controls the system per era. Links to eras and factions from the Universe tab.
-
-### Saving
-
-Click **✓ Save Star**. Confirmation appears briefly. Stars are created automatically — no need to save before adding planets.
+Fictional Name, Common Name, Significance, First Contact Era, Plot Notes, Internal Notes, Tags, Era Control.
 
 ---
 
-## 6. Worldbuilding Panel — Planets Tab
+## 7. Worldbuilding Panel — Planets Tab
 
 ### NASA Catalog Section
 
-For stars with confirmed exoplanets, a **NASA CATALOG** section shows each planet with:
-- Size class (auto from radius), temperature zone, orbit, mass, radius
-- **★ Hab candidate** badge (if in habitable zone)
-- Discovery method and year
-- **Import** — imports into your WB database
-- **Import All** — imports all at once
+Stars with confirmed exoplanets show each planet with size class, temperature zone, orbit, mass, radius, hab zone badge, discovery info. **Import** / **Import All** buttons.
 
 ### Your Planets Section
 
-User-created and imported planets, each showing fictional name, world type, size class, atmosphere, orbit, and period. Buttons: **edit**, **🌙** (open Moons tab for this planet), **✕** (delete).
+User-created and imported planets. Edit, 🌙 (Moons), ✕ (delete) buttons per card.
 
-### Planet Form Fields
-
-**Physical:**
-- Radius (R⊕) and Mass (M⊕) — Size class auto-derives from radius
-- World Type, Atmosphere, Temperature, Native Life, Habitable (Yes/No)
-
-**Size Class thresholds:**
+### Size Class Thresholds
 
 | Radius | Class |
 |---|---|
@@ -199,140 +207,73 @@ User-created and imported planets, each showing fictional name, world type, size
 | 3.5–10 | Neptune-like |
 | > 10 | Gas Giant |
 
-**Orbital Elements** (used by exoplanet viewer):
-Orbit (AU), Period (days), Eccentricity, Inclination (°), Arg. Periastron (°)
-
-**Worldbuilding:** Significance, Plot Notes
-
 ---
 
-## 7. Worldbuilding Panel — Moons Tab
+## 8. Worldbuilding Panel — Moons Tab
 
-Available in the exoplanet viewer. Activate by clicking **🌙** on a planet card in the Planets tab.
-
-### Context Bar
-
-Shows which planet's moons you're managing.
-
-### Moon Form Fields
-
-| Field | Description |
-|---|---|
-| Fictional Name | Your name for this moon |
-| Common Name | Short nickname |
-| Orbit (Rp) | Semi-major axis in parent planet radii |
-| Period (days) | Orbital period |
-| Eccentricity | 0 = circular, max 0.99 |
-| Inclination (°) | Orbital inclination |
-| Radius (km) | Moon radius in kilometres |
-| World Type | Rocky, Ice, Ocean, Desert, Toxic, Artificial, Other |
-| Atmosphere | None, Thin, Breathable, Toxic, Dense, Exotic |
-| Significance | NONE / MINOR / MAJOR / CRITICAL |
-| Plot Notes | Narrative notes |
-
-After saving, open **⬡ Moons** in the exoplanet viewer to see your moons rendered in the scene alongside any catalog moons.
+Available in the exoplanet viewer. Activate via **🌙** on a planet card. Add moons with orbital elements (semi-major axis in parent planet radii, period, eccentricity, inclination), physical properties (radius km, world type, atmosphere), and narrative notes.
 
 **Orbit reference (Rp = parent planet radii):**
-- Earth's Moon: 60.3 Rp
-- Io: 5.9 Rp (Jupiter)
-- Titan: 20.3 Rp (Saturn)
+- Earth's Moon: 60.3 Rp · Io: 5.9 Rp (Jupiter) · Titan: 20.3 Rp (Saturn)
 
 ---
 
-## 8. Worldbuilding Panel — Universe Tab
+## 9. Worldbuilding Panel — Universe Tab
 
-Define the meta-structure of your fictional universe.
-
-### Eras
-
-Time periods (e.g. "First Expansion", "The Collapse"). Used to timestamp first contact and era control records. Add via **+ new era** in the Star tab, or manage the full list here.
-
-### Civilizations
-
-Spacefaring species/nations with name, species, homeworld, color, and symbol.
-
-### Factions
-
-Political/military entities that control star systems. Belong to a civilization. Used in Era Control records.
+Define eras, civilizations, and factions. Used in Star tab for First Contact era and Era Control records.
 
 ---
 
-## 9. Planet Rings & Indicators
+## 10. Planet Rings & Indicators
 
-| Ring Color | Meaning |
-|---|---|
-| **Green** | Confirmed NASA exoplanets |
-| **Blue** | User-created planets only |
+| Ring | Color | Condition |
+|---|---|---|
+| 🟢 Green | `#00dd88` | NASA confirmed + user-created planets |
+| 🔵 Blue | `#1188ff` | NASA confirmed planets only |
+| 🟣 Purple | `#aa66ff` | User-created planets only |
+| 🟡 Amber | `#ffaa00` | Multi-star system, no planets |
 
-Rings appear automatically when the NASA catalog is installed or when you save/import a planet. Green-ring stars always show a name label in the galactic map.
+Planet rings take priority over amber. All ring-bearing stars always show name labels.
 
 ---
 
-## 10. Habitable Zone
-
-Shown in two places:
-
-**WB Panel → Star Tab** — AU range in the HYG reference box.
-
-**Exoplanet Viewer** — faint green band in the orbital plane.
+## 11. Habitable Zone
 
 **Calculation:**
-1. Visual absolute magnitude converted to bolometric using spectral type correction (Flower 1996)
+1. Bolometric correction applied to visual abs mag by spectral type (Flower 1996)
 2. Luminosity: `L = 10^((4.83 - absmag_bol) / 2.5)`
-3. Inner edge: `√(L / 1.1)` AU
-4. Outer edge: `√(L / 0.53)` AU
-5. Based on Kopparapu et al. (2013) conservative limits
-
-**Reference values:**
-
-| Star | Spectral | Hab Zone |
-|---|---|---|
-| Sol | G2V | 0.95–1.37 AU |
-| Tau Ceti | G8V | 0.63–0.93 AU |
-| Epsilon Eridani | K2V | 0.51–0.73 AU |
-| GJ 411 | M2V | 0.14–0.20 AU |
-| Ross 128 | M4.5V | 0.04–0.06 AU |
+3. Inner: `√(L / 1.1)` AU · Outer: `√(L / 0.53)` AU
+4. Kopparapu et al. (2013) conservative limits
 
 ---
 
-## 11. Data & Catalogs
+## 12. Data & Catalogs
 
 ### Star Catalog
-- **Source:** AT-HYG v3.2 (Hipparcos + Yale Bright Star + Gliese merged)
-- **Coverage:** ~4,500 stars within 120 ly of Sol
+- **Source:** HYG v4.2 (Hipparcos + Yale Bright Star + Gliese)
+- **Coverage:** ~120,000 stars, filtered to 120 ly for display
 - **Update:** `sudo bash /var/www/starmap/update-catalog.sh`
-- **Fallback:** 133-star embedded catalog if CSV not found
+- **Fallback:** 133-star embedded catalog if CSV not downloaded
 
 ### Exoplanet Catalog
 - **Source:** NASA Exoplanet Archive (TAP API, PSCompPars table)
 - **Coverage:** Confirmed planets within ~120 ly (37 parsecs)
 - **Update:** `sudo bash /var/www/starmap/update-exoplanets.sh`
-- **Matching:** HIP number → HD number → hostname (priority order)
-- **Binary guard:** Component stars (A/B/C suffix) only match via catalog ID, not by name
+
+### Multi-Star Grouping
+- **Primary method:** HYG `base` column (shared Gliese root number)
+- **Fallback:** `gl` column root stripping for stars without `base`
+- **Supplement:** Hardcoded HIP pairs for known planet-hosting binaries whose companions lack catalog Gliese numbers (Gamma Cephei, Gliese 86, 55 Cancri)
 
 ### Worldbuilding Database
 - **Location:** `/var/www/starmap/data/world.db` (SQLite)
-- **Tables:** eras, civilizations, factions, wb_stars, wb_planets, wb_moons, tags, era_control
 - **Backup:** `curl http://localhost/api/world/backup > backup.json`
 
 ---
 
-## 12. Controls Reference
+## 13. Controls Reference
 
-### Galactic Map
-
-| Action | Control |
-|---|---|
-| Orbit | Left-drag |
-| Pan | Right-drag |
-| Zoom | Scroll wheel |
-| Select star | Click |
-| Focus star | Double-click |
-| Search | Bottom search bar |
-| Open menu | ☰ (top-left) |
-| Close detail | ✕ on panel |
-
-### All Viewers (Exoplanet / Solar / Moon)
+### All Viewers
 
 | Action | Control |
 |---|---|
@@ -340,20 +281,19 @@ Shown in two places:
 | Pan | Right-drag |
 | Zoom | Scroll wheel |
 | Select object | Click |
-| Play/Pause | ⏸/▶ button |
-| Speed | Speed slider |
 | Close tab | ✕ Close button |
 
-### Worldbuilding Panel
+### Galactic Map Only
 
-| Action | Description |
+| Action | Control |
 |---|---|
-| Switch tabs | Click Star / Universe / Planets / Moons |
-| Save star | ✓ Save Star |
-| Add planet | Fill form → ✓ Save Planet |
-| Edit planet | **edit** on planet card |
-| Open moon tab | **🌙** on planet card |
-| Delete | **✕** on card |
-| Import NASA planet | **Import** on NASA card |
-| Import all | **Import All** |
-| Close panel | ✕ top-right |
+| Focus star | Double-click |
+| Search | Bottom search bar |
+| Open menu | ☰ top-left |
+
+### Exoplanet / Solar / Moon Viewers
+
+| Action | Control |
+|---|---|
+| Play/Pause | ⏸/▶ button |
+| Speed | Speed slider |

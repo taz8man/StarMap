@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/images/Galactic.ico">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stellar System Viewer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0ede6;--pn:rgba(245,243,240,0.72);--ptx:#1a1a1a;--pdm:#6a6a6a;
+  --fs:clamp(11px,1.1vw,14px);--fs-sm:calc(var(--fs)*.85);
+  --fs-md:var(--fs);--fs-lg:calc(var(--fs)*1.2);
+  --pw:clamp(200px,20vw,300px);
+}
+body{background:var(--bg);color:var(--ptx);font-family:'Space Mono',monospace;overflow:hidden;width:100vw;height:100vh}
+#wrap{position:fixed;inset:0}
+#hdr{position:fixed;top:0;left:0;right:0;padding:clamp(6px,.8vh,12px) 18px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(to bottom,rgba(240,237,230,.97),transparent);z-index:10;pointer-events:none}
+#hdr h1{font-family:'Orbitron',monospace;font-size:clamp(11px,1.3vw,16px);
+  letter-spacing:.18em;color:#334;pointer-events:none}
+#sys-sub{font-size:var(--fs-sm);color:#888;letter-spacing:.06em;margin-top:2px}
+#back-btn{pointer-events:all;font-family:'Space Mono',monospace;font-size:var(--fs-sm);
+  background:rgba(245,243,240,0.80);color:#1a1a1a;
+  border:1.5px solid rgba(0,0,0,0.12);border-radius:10px;
+  box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 2px 8px rgba(0,0,0,.08);
+  padding:6px 16px;cursor:pointer;transition:background .15s,box-shadow .15s}
+#back-btn:hover{background:rgba(245,243,240,0.96);box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 3px 12px rgba(0,0,0,.13)}
+.pn{position:fixed;
+  background:rgba(245,243,240,0.72);
+  backdrop-filter:blur(28px) saturate(1.6);
+  -webkit-backdrop-filter:blur(28px) saturate(1.6);
+  border:none;border-radius:18px;
+  padding:clamp(10px,1.2vh,16px) clamp(10px,1vw,16px);
+  z-index:10;
+  box-shadow:0 1px 0 rgba(255,255,255,0.90) inset,0 -1px 0 rgba(0,0,0,0.06) inset,
+    1px 0 0 rgba(255,255,255,0.60) inset,-1px 0 0 rgba(255,255,255,0.30) inset,
+    0 12px 48px rgba(0,0,0,0.10),0 2px 8px rgba(0,0,0,0.06)}
+#dp{top:clamp(65px,7vh,95px);right:18px;width:var(--pw);display:none;z-index:16}
+#dp h4{color:#1a1a1a;font-size:var(--fs-md);margin-bottom:8px;padding-right:18px;
+  font-family:'Orbitron',sans-serif;letter-spacing:.08em}
+.dr{font-size:var(--fs-md);margin-bottom:4px;color:var(--ptx)}
+.dr .lb{color:#6a6a6a;display:inline-block;min-width:80px}
+#cs{position:absolute;top:7px;right:9px;font-size:var(--fs-lg);color:#6a6a6a;
+  cursor:pointer;background:none;border:none}
+#cs:hover{color:#1a1a1a}
+/* System overview panel (bottom-left) */
+#sp{bottom:18px;left:18px;width:clamp(220px,22vw,340px);max-height:60vh;overflow-y:auto}
+#sp h4{font-family:'Orbitron',sans-serif;font-size:var(--fs-sm);letter-spacing:.10em;
+  color:#6a6a6a;margin-bottom:10px;text-transform:uppercase}
+.sm-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;
+  padding:7px 9px;border-radius:10px;cursor:pointer;transition:background .15s}
+.sm-row:hover{background:rgba(0,0,0,0.05)}
+.sm-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.sm-info{flex:1}
+.sm-name{font-size:var(--fs-sm);color:#1a1a1a;font-weight:600}
+.sm-meta{font-size:calc(var(--fs)*0.78);color:#6a6a6a}
+.sm-exo{font-size:calc(var(--fs)*0.75);color:#1a8855;margin-top:1px}
+.sm-excl{margin-top:10px;padding-top:8px;border-top:1px solid rgba(0,0,0,0.08)}
+.sm-excl-hdr{font-size:calc(var(--fs)*0.78);color:#8a8a8a;letter-spacing:.05em;margin-bottom:5px}
+.sm-excl-row{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.sm-excl-dot{width:8px;height:8px;border-radius:50%;background:#cccccc;flex-shrink:0;opacity:.6}
+.sm-excl-text{font-size:calc(var(--fs)*0.76);color:#9a9a9a;font-style:italic}
+/* Tooltip */
+#tp{position:fixed;pointer-events:none;z-index:30;display:none;
+  background:rgba(245,243,240,0.92);border:none;border-radius:12px;
+  box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 8px 24px rgba(0,0,0,.10);
+  padding:7px 11px;max-width:220px;backdrop-filter:blur(8px)}
+#tp h3{font-family:'Orbitron',sans-serif;font-size:var(--fs-lg);color:#1a1a1a;margin-bottom:3px}
+#tp p{font-size:var(--fs-md);color:#4a4a4a;line-height:1.6}
+#ds{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);
+  font-size:var(--fs-sm);color:#8899aa;pointer-events:none;z-index:10;letter-spacing:.05em}
+/* DP action buttons */
+.dp-btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:34px;
+  font-family:'Space Mono',monospace;font-size:var(--fs-md);text-align:center;
+  padding:7px 12px;border-radius:10px;cursor:pointer;letter-spacing:.05em;
+  transition:filter .15s,box-shadow .15s;text-decoration:none;box-sizing:border-box;
+  font-weight:600;margin-top:6px;
+  box-shadow:0 1px 0 rgba(255,255,255,0.75) inset,0 1px 4px rgba(0,0,0,0.12)}
+.dp-btn:hover{filter:brightness(0.92);box-shadow:0 1px 0 rgba(255,255,255,0.75) inset,0 3px 10px rgba(0,0,0,0.15)}
+.dp-btn-exo{background:rgba(0,160,100,0.35);color:#003318;border:1.5px solid rgba(0,140,90,0.65)}
+.dp-btn-wb{background:rgba(120,60,220,0.35);color:#200055;border:1.5px solid rgba(102,51,204,0.65)}
+</style>
+<link rel="stylesheet" href="/static/css/worldbuilding.css">
+</head>
+<body>
+<div id="wrap"></div>
+<div id="hdr">
+  <div>
+    <h1 id="sys-title">STELLAR SYSTEM</h1>
+    <p id="sys-sub">Loading…</p>
+  </div>
+  <button id="back-btn" onclick="window.history.length>1?history.back():window.close()">✕ Close</button>
+</div>
+
+<!-- Star detail panel -->
+<div class="pn" id="dp">
+  <button id="cs">✕</button>
+  <h4 id="dn">—</h4>
+  <div class="dr"><span class="lb">Spectral  </span><span id="d-spect"></span></div>
+  <div class="dr"><span class="lb">Abs Mag   </span><span id="d-absmag"></span></div>
+  <div class="dr"><span class="lb">Luminosity</span><span id="d-lum"></span></div>
+  <div class="dr"><span class="lb">Separation</span><span id="d-sep"></span></div>
+  <div class="dr"><span class="lb">Hab Zone  </span><span id="d-hz"></span></div>
+  <div id="d-exo-wrap" style="display:none;margin-top:4px">
+    <button id="d-btn-exo" class="dp-btn dp-btn-exo">⬡ Planets</button>
+  </div>
+  <div style="margin-top:4px">
+    <button id="d-btn-wb" class="dp-btn dp-btn-wb">✎ Notes</button>
+  </div>
+</div>
+
+<!-- System overview panel -->
+<div class="pn" id="sp">
+  <h4 id="sp-title">STELLAR SYSTEM</h4>
+  <div id="sp-members"></div>
+</div>
+
+<div id="tp"><h3 id="tn"></h3><p id="tb"></p></div>
+<div id="ds">STELLAR SYSTEM · TRUE SCALE · 1 UNIT = MEAN SEPARATION</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/static/js/worldbuilding-panel.js"></script>
+<script src="/static/js/worldbuilding.js"></script>
+<script>
+'use strict';
+// WB_API and $ defined by worldbuilding.js
+document.addEventListener('DOMContentLoaded', ()=>{
+  wbInjectPanel();
+  const p=document.getElementById('wb-panel');
+  if(p){
+    p.style.cssText+=';position:fixed;top:clamp(70px,7vh,100px);'
+      +'right:calc(var(--pw) + 28px);width:clamp(300px,28vw,420px);'
+      +'max-height:calc(100vh - clamp(70px,7vh,100px) - 30px);'
+      +'background:var(--pn);border:1px solid rgba(160,80,220,.35);'
+      +'border-radius:8px;z-index:20;backdrop-filter:blur(12px);overflow:hidden;';
+  }
+  if(typeof wbLoadRefs==='function') wbLoadRefs();
+});
+
+
+// ── URL PARAMS ────────────────────────────────────────────────────────────────
+const params = new URLSearchParams(window.location.search);
+const COUNT  = parseInt(params.get('count')||'2')||2;
+
+// Parse star entries
+const STARS = [];
+for(let i=1;i<=COUNT;i++){
+  const hip    = params.get('s'+i+'_hip')||'';
+  const name   = params.get('s'+i+'_name')||('Star '+i);
+  const spect  = params.get('s'+i+'_spect')||'';
+  const absmag = parseFloat(params.get('s'+i+'_absmag')||'NaN');
+  const ctype  = params.get('s'+i+'_ctype')||'pc';
+  const xRaw   = parseFloat(params.get('s'+i+'_x')||'0');
+  const yRaw   = parseFloat(params.get('s'+i+'_y')||'0');
+  const zRaw   = parseFloat(params.get('s'+i+'_z')||'0');
+  // Normalise everything to parsecs for separation calculations
+  const PC = ctype==='ly' ? 1/3.26156 : 1.0;
+  const x = xRaw * PC;
+  const y = yRaw * PC;
+  const z = zRaw * PC;
+  const hasExo = params.get('s'+i+'_exo')==='1';
+  const dist_pc=Math.sqrt(x*x+y*y+z*z);
+  STARS.push({hip, name, spect, absmag, x, y, z, hasExo,
+              dist_ly:parseFloat(params.get('s'+i+'_dist')||'')||dist_pc*3.26156});
+}
+
+// Parse excluded members
+const EXCLUDED = [];
+const excRaw = params.get('excluded')||'';
+if(excRaw){
+  excRaw.split('|').forEach(part=>{
+    const bits = part.split(':');
+    if(bits.length>=3){
+      EXCLUDED.push({
+        name:   decodeURIComponent(bits[0]),
+        spect:  decodeURIComponent(bits[1]),
+        reason: decodeURIComponent(bits.slice(2).join(':'))
+      });
+    }
+  });
+}
+
+// ── SPECTRAL COLOR ────────────────────────────────────────────────────────────
+function spectToColor(spect){
+  const s=(spect||'').trim().toUpperCase();
+  if(s.startsWith('O')) return 0x9bb0ff;
+  if(s.startsWith('B')) return 0xaabfff;
+  if(s.startsWith('A')) return 0xcad7ff;
+  if(s.startsWith('F')) return 0xf8f7ff;
+  if(s.startsWith('G')) return 0xffd97d;
+  if(s.startsWith('K')) return 0xffb347;
+  if(s.startsWith('M')) return 0xff6347;
+  if(s.startsWith('D')) return 0xaaccff;
+  return 0xffd97d;
+}
+function spectToHex(spect){
+  return '#'+spectToColor(spect).toString(16).padStart(6,'0');
+}
+
+// ── BOLOMETRIC CORRECTION ─────────────────────────────────────────────────────
+function bcForSpect(spect){
+  const s=(spect||'').trim().toUpperCase();
+  if(s.startsWith('O')) return -4.0;
+  if(s.startsWith('B')) return -2.0;
+  if(s.startsWith('A')) return -0.3;
+  if(s.startsWith('F')) return -0.1;
+  if(s.startsWith('G')) return -0.1;
+  if(s.startsWith('K')) return -0.4;
+  if(s.startsWith('M')){const sub=s.length>1&&s[1]>='0'&&s[1]<='9'?parseFloat(s[1]):2.0;return -(1.0+sub*0.25);}
+  if(s.startsWith('D')) return -0.5;
+  return -0.1;
+}
+function lumFromAbsmag(absmag, spect){
+  if(!isFinite(absmag)) return null;
+  return Math.pow(10,(4.83-(absmag+bcForSpect(spect)))/2.5);
+}
+
+// ── SCENE ─────────────────────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf0ede6);
+const camera = new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.001,10000);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.setClearColor(0xf0ede6,1);
+$('wrap').appendChild(renderer.domElement);
+window.addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+// ── ORBIT CONTROLS ────────────────────────────────────────────────────────────
+const cam={
+  sph:new THREE.Spherical(5,1.2,0.3),
+  target:new THREE.Vector3(),pan:new THREE.Vector3(),
+  drag:false,right:false,last:{x:0,y:0},
+  update(){
+    this.sph.phi=Math.max(.05,Math.min(Math.PI-.05,this.sph.phi));
+    this.sph.radius=Math.max(.01,Math.min(5000,this.sph.radius));
+    camera.position.setFromSpherical(this.sph).add(this.target).add(this.pan);
+    camera.lookAt(new THREE.Vector3().addVectors(this.target,this.pan));
+  }
+};
+const cvs=renderer.domElement;
+cvs.addEventListener('contextmenu',e=>e.preventDefault());
+cvs.addEventListener('mousedown',e=>{cam.drag=true;cam.right=e.button===2;cam.last={x:e.clientX,y:e.clientY};});
+window.addEventListener('mouseup',()=>cam.drag=false);
+window.addEventListener('mousemove',e=>{
+  if(!cam.drag)return;
+  const dx=e.clientX-cam.last.x,dy=e.clientY-cam.last.y;
+  if(cam.right){
+    const sp=cam.sph.radius*.0012,r=new THREE.Vector3(),u=new THREE.Vector3(0,1,0);
+    r.crossVectors(camera.getWorldDirection(new THREE.Vector3()),u).normalize();
+    cam.pan.addScaledVector(r,-dx*sp).addScaledVector(u,dy*sp);
+  }else{cam.sph.theta-=dx*.005;cam.sph.phi-=dy*.005;}
+  cam.last={x:e.clientX,y:e.clientY};
+});
+cvs.addEventListener('wheel',e=>{e.preventDefault();cam.sph.radius*=1+e.deltaY*.001;},{passive:false});
+
+// ── LABEL SYSTEM ──────────────────────────────────────────────────────────────
+const HALO_COLOR='rgba(240,237,230,0.92)';
+const HALO_WIDTH=6;
+const LABEL_PX_H=22;
+
+function makeLabel(txt,hexCol){
+  const canvH=LABEL_PX_H*3;
+  const c=document.createElement('canvas'),ctx=c.getContext('2d');
+  const fontSize=Math.round(canvH*0.78);
+  ctx.font=`700 ${fontSize}px "Space Mono",monospace`;
+  const textW=Math.ceil(ctx.measureText(txt).width)+HALO_WIDTH*2+10;
+  c.width=textW;c.height=canvH;
+  ctx.font=`700 ${fontSize}px "Space Mono",monospace`;
+  const tx=HALO_WIDTH+5, ty=fontSize;
+  // ① Halo — warm background colour behind text
+  ctx.lineWidth=HALO_WIDTH*2;ctx.lineJoin='round';
+  ctx.strokeStyle=HALO_COLOR;ctx.strokeText(txt,tx,ty);
+  // ② Ink — dark spectral-tinted fill (30% of hex colour, same as main map)
+  const ri=parseInt(hexCol.slice(1,3),16)/255;
+  const gi=parseInt(hexCol.slice(3,5),16)/255;
+  const bi=parseInt(hexCol.slice(5,7),16)/255;
+  const ir=Math.round(ri*0.30*255);
+  const ig=Math.round(gi*0.30*255);
+  const ib=Math.round(Math.min(bi*0.30+0.10,1)*255);
+  ctx.fillStyle=`rgb(${ir},${ig},${ib})`;
+  ctx.fillText(txt,tx,ty);
+  const tex=new THREE.CanvasTexture(c);
+  tex.minFilter=tex.magFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,opacity:0.95,depthWrite:false,depthTest:false}));
+  sp.renderOrder=999;sp.userData.aspect=textW/canvH;sp.scale.set(1,1,1);
+  return sp;
+}
+
+const _ndc=new THREE.Vector3(),_off=new THREE.Vector3();
+function updateLabelPos(sprite,wx,wy,wz,scaleFactor){
+  scaleFactor=scaleFactor||1.0;
+  const H=renderer.domElement.clientHeight||innerHeight;
+  const W=renderer.domElement.clientWidth||innerWidth;
+  _ndc.set(wx,wy,wz).project(camera);
+  const depth=_ndc.z;
+  const ndcH=(LABEL_PX_H*scaleFactor/H)*2;
+  _off.set(_ndc.x,_ndc.y+ndcH,depth).unproject(camera);
+  const wH=_off.distanceTo(new THREE.Vector3(wx,wy,wz));
+  const asp=sprite.userData.aspect||4;sprite.scale.set(wH*asp,wH,1);
+  const ndcX=(10/W)*2;
+  _off.set(_ndc.x+ndcX,_ndc.y,depth).unproject(camera);
+  sprite.position.set(_off.x+wH*asp*.5,_off.y+wH*.5,_off.z);
+}
+
+// ── LIGHTING ──────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xf0ede6,.5));
+
+// ── COMPUTE POSITIONS ─────────────────────────────────────────────────────────
+// Find centroid and scale so mean separation = 1 scene unit
+const cx=STARS.reduce((a,s)=>a+s.x,0)/STARS.length;
+const cy=STARS.reduce((a,s)=>a+s.y,0)/STARS.length;
+const cz=STARS.reduce((a,s)=>a+s.z,0)/STARS.length;
+
+// Mean pairwise separation in pc
+let totalSep=0,pairs=0;
+for(let i=0;i<STARS.length;i++){
+  for(let j=i+1;j<STARS.length;j++){
+    const dx=STARS[i].x-STARS[j].x,dy=STARS[i].y-STARS[j].y,dz=STARS[i].z-STARS[j].z;
+    totalSep+=Math.sqrt(dx*dx+dy*dy+dz*dz);
+    pairs++;
+  }
+}
+const meanSepPc=pairs>0?totalSep/pairs:1;
+const SCALE=1/meanSepPc;  // scene units per pc — mean sep = 1 scene unit
+const AU_PER_PC=206265;
+
+// Attach scene positions to stars
+STARS.forEach(s=>{
+  s.sx=(s.x-cx)*SCALE;
+  s.sy=(s.y-cy)*SCALE;
+  s.sz=(s.z-cz)*SCALE;
+  // Separation from star 0 in AU
+  const dx=s.x-STARS[0].x,dy=s.y-STARS[0].y,dz=s.z-STARS[0].z;
+  s.sepAU=Math.round(Math.sqrt(dx*dx+dy*dy+dz*dz)*AU_PER_PC);
+});
+
+// ── BUILD SCENE ───────────────────────────────────────────────────────────────
+const starObjects=[];
+const STAR_R=0.04;
+
+STARS.forEach(s=>{
+  const col=spectToColor(s.spect);
+  const hex=spectToHex(s.spect);
+
+  // Star sphere
+  const mesh=new THREE.Mesh(
+    new THREE.SphereGeometry(STAR_R,24,16),
+    new THREE.MeshBasicMaterial({color:col})
+  );
+  mesh.position.set(s.sx,s.sy,s.sz);
+  scene.add(mesh);
+
+  // Glow halo
+  const glow=new THREE.Mesh(
+    new THREE.SphereGeometry(STAR_R*2.2,16,10),
+    new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.12,depthWrite:false})
+  );
+  glow.position.copy(mesh.position);
+  scene.add(glow);
+
+  // Label
+  const lbl=makeLabel(s.name,hex);
+  scene.add(lbl);
+
+  // Clickable hit zone
+  const hit=new THREE.Mesh(
+    new THREE.SphereGeometry(STAR_R*4,8,6),
+    new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false})
+  );
+  hit.position.copy(mesh.position);
+  hit.userData.starIdx=STARS.indexOf(s);
+  scene.add(hit);
+
+  starObjects.push({star:s, mesh, lbl, hit});
+});
+
+// Connecting line between stars
+if(STARS.length>=2){
+  const pts=STARS.map(s=>new THREE.Vector3(s.sx,s.sy,s.sz));
+  const geo=new THREE.BufferGeometry().setFromPoints(pts);
+  const mat=new THREE.LineBasicMaterial({color:0xcccccc,transparent:true,opacity:.3});
+  scene.add(new THREE.Line(geo,mat));
+}
+
+// Camera initial position
+cam.sph.radius=Math.max(1.5,meanSepPc*SCALE*3);
+
+// ── SEPARATION LABEL IN SCENE ─────────────────────────────────────────────────
+if(STARS.length>=2){
+  const dx=STARS[0].x-STARS[1].x,dy=STARS[0].y-STARS[1].y,dz=STARS[0].z-STARS[1].z;
+  const sepAU=Math.round(Math.sqrt(dx*dx+dy*dy+dz*dz)*AU_PER_PC);
+  const mid=new THREE.Vector3(
+    (STARS[0].sx+STARS[1].sx)/2,
+    (STARS[0].sy+STARS[1].sy)/2+STAR_R*2,
+    (STARS[0].sz+STARS[1].sz)/2
+  );
+  // Use makeLabel with neutral dark grey — same rendering as star labels
+  const sepLbl=makeLabel(sepAU.toLocaleString()+' AU', '#888888');
+  sepLbl.position.copy(mid);
+  scene.add(sepLbl);
+  starObjects.push({star:null,mesh:null,lbl:sepLbl,hit:null,isSepLabel:true,
+    sx:mid.x,sy:mid.y,sz:mid.z});
+}
+
+// Update sys-title and sub
+$('sys-title').textContent='STELLAR SYSTEM';
+const memberCount=STARS.length;
+const exclCount=EXCLUDED.length;
+$('sys-sub').textContent=
+  memberCount+' STAR'+(memberCount>1?'S':'')+' RENDERED'
+  +(exclCount?' · '+exclCount+' NOT SHOWN':'')
+  +' · SCALE: 1 UNIT = '+Math.round(meanSepPc*AU_PER_PC).toLocaleString()+' AU';
+
+// ── SYSTEM OVERVIEW PANEL ─────────────────────────────────────────────────────
+(()=>{
+  const title=STARS.length>=2
+    ? (STARS[0].name.replace(/ [ABC]$/,'') || 'System')
+    : STARS[0].name;
+  $('sp-title').textContent=title.toUpperCase()+' SYSTEM';
+
+  const box=$('sp-members');
+  let html='';
+
+  STARS.forEach((s,i)=>{
+    const hex=spectToHex(s.spect);
+    const lum=lumFromAbsmag(s.absmag,s.spect);
+    const lumStr=lum?(lum<0.01?lum.toExponential(1):lum.toFixed(2))+' L☉':'—';
+    const sep=i===0?'Primary':(s.sepAU?s.sepAU.toLocaleString()+' AU from primary':'—');
+    html+=`<div class="sm-row" onclick="selectStar(${i})">
+      <div class="sm-dot" style="background:${hex}"></div>
+      <div class="sm-info">
+        <div class="sm-name">${s.name}</div>
+        <div class="sm-meta">${s.spect||'—'} · ${lumStr} · ${sep}</div>
+        ${s.hasExo?'<div class="sm-exo">⬡ Has planets</div>':''}
+      </div>
+    </div>`;
+  });
+
+  if(EXCLUDED.length){
+    html+='<div class="sm-excl">';
+    html+='<div class="sm-excl-hdr">NOT SHOWN</div>';
+    EXCLUDED.forEach(e=>{
+      html+=`<div class="sm-excl-row">
+        <div class="sm-excl-dot"></div>
+        <div class="sm-excl-text">${e.name} (${e.spect}) — ${e.reason}</div>
+      </div>`;
+    });
+    html+='</div>';
+  }
+
+  box.innerHTML=html;
+})();
+
+// ── PICKING ───────────────────────────────────────────────────────────────────
+const ray=new THREE.Raycaster();
+const mv=new THREE.Vector2();
+const hits=starObjects.map(o=>o.hit);
+
+function pick(mx,my){
+  mv.set((mx/innerWidth)*2-1,-(my/innerHeight)*2+1);
+  ray.setFromCamera(mv,camera);
+  const res=ray.intersectObjects(hits,false);
+  if(!res.length)return null;
+  return res[0].object.userData.starIdx;
+}
+
+const tp=$('tp');
+cvs.addEventListener('mousemove',e=>{
+  if(cam.drag){tp.style.display='none';return;}
+  const idx=pick(e.clientX,e.clientY);
+  if(idx!=null){
+    const s=STARS[idx];
+    tp.style.display='block';tp.style.left=(e.clientX+14)+'px';tp.style.top=(e.clientY-10)+'px';
+    $('tn').textContent=s.name;
+    const lum=lumFromAbsmag(s.absmag,s.spect);
+    $('tb').innerHTML=`${s.spect||'—'} · Abs Mag: ${isFinite(s.absmag)?s.absmag.toFixed(2):'—'}`
+      +(lum?`<br>Luminosity: ${lum<0.01?lum.toExponential(2):lum.toFixed(3)} L☉`:'')
+      +(s.hasExo?'<br>⬡ Has planets':'');
+    cvs.style.cursor='pointer';
+  }else{tp.style.display='none';cvs.style.cursor='default';}
+});
+
+cvs.addEventListener('click',e=>{
+  const idx=pick(e.clientX,e.clientY);
+  if(idx!=null) selectStar(idx);
+});
+
+$('cs').addEventListener('click',()=>$('dp').style.display='none');
+
+function selectStar(idx){
+  const s=STARS[idx];
+  $('dp').style.display='block';
+  $('dn').textContent=s.name;
+  $('d-spect').textContent=s.spect||'—';
+  $('d-absmag').textContent=isFinite(s.absmag)?s.absmag.toFixed(2):'—';
+  const lum=lumFromAbsmag(s.absmag,s.spect);
+  $('d-lum').textContent=lum?(lum<0.01?lum.toExponential(2):lum.toFixed(3))+' L☉':'—';
+  // Separation from primary
+  const isPrimary=idx===0;
+  if(isPrimary){
+    $('d-sep').textContent='Primary star';
+  } else {
+    const dx=s.x-STARS[0].x,dy=s.y-STARS[0].y,dz=s.z-STARS[0].z;
+    const sepAU=Math.round(Math.sqrt(dx*dx+dy*dy+dz*dz)*AU_PER_PC);
+    $('d-sep').textContent=sepAU.toLocaleString()+' AU from primary';
+  }
+  // Hab zone
+  if(lum&&lum>0){
+    const inner=Math.sqrt(lum/1.1).toFixed(2);
+    const outer=Math.sqrt(lum/0.53).toFixed(2);
+    $('d-hz').textContent=inner+' – '+outer+' AU';
+  } else {
+    $('d-hz').textContent='—';
+  }
+  // Exoplanet button
+  if(s.hasExo && s.hip){
+    $('d-exo-wrap').style.display='';
+    $('d-btn-exo').onclick=()=>{
+      const base=window.location.href.replace(/\/[^\/]*$/,'/');
+      const p=new URLSearchParams({
+        hip:s.hip, host:s.name, spect:s.spect,
+        absmag:isFinite(s.absmag)?s.absmag:''
+      });
+      window.open(base+'exoplanet-system.html?'+p.toString(),'_blank','noopener');
+    };
+  } else {
+    $('d-exo-wrap').style.display='none';
+  }
+  // WB notes button — open WB panel for this star
+  $('d-btn-wb').onclick=async()=>{
+    const starObj={
+      name:   s.name,
+      hip:    parseInt(s.hip)||null,
+      spect:  s.spect||'',
+      absmag: s.absmag,
+      lum:    lumFromAbsmag(s.absmag, s.spect),
+      dist_ly:s.dist_ly||0,
+    };
+    if(typeof wbOpenForStar==='function') await wbOpenForStar(starObj);
+  };
+}
+
+// ── RENDER LOOP ───────────────────────────────────────────────────────────────
+function animate(){
+  requestAnimationFrame(animate);
+  cam.update();
+  starObjects.forEach(o=>{
+    if(!o.lbl) return;
+    if(o.isSepLabel){
+      // Sep label: slightly smaller than star labels
+      updateLabelPos(o.lbl, o.sx, o.sy, o.sz, 0.85);
+    } else {
+      updateLabelPos(o.lbl, o.star.sx, o.star.sy, o.star.sz, 1.0);
+    }
+  });
+  renderer.render(scene,camera);
+}
+animate();
+</script>
+</body>
+</html>

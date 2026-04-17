@@ -41,7 +41,7 @@ curl -fsS --max-time 6 https://1.1.1.1 -o /dev/null \
 ok "Internet connection OK"
 
 # ── Download ─────────────────────────────────────────────────────────────────
-URL="https://codeberg.org/astronexus/hyg/media/branch/main/data/athyg_v3/hyglike_from_athyg_v32.csv.gz"
+URL="https://codeberg.org/astronexus/hyg/media/branch/main/data/hyg/CURRENT/hyg_v42.csv.gz"
 
 info "Downloading catalog (~3 MB compressed)..."
 info "URL: $(basename $URL)"
@@ -76,7 +76,7 @@ if [ "$GZ_BYTES" -lt 500000 ]; then
     warn "  1. Open this URL in your browser and download the file:"
     warn "     $URL"
     warn "  2. Copy it to the Pi:"
-    warn "     scp ~/Downloads/hyglike_from_athyg_v32.csv.gz pi@PI_IP:/tmp/hyg_catalog.csv.gz"
+    warn "     scp ~/Downloads/hyg_v42.csv.gz pi@PI_IP:/tmp/hyg_catalog.csv.gz"
     warn "  3. Run this script again — it will skip the download and use the file you copied."
     echo ""
     # Check if a manually placed file exists

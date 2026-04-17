@@ -300,6 +300,12 @@ textarea.wb-inp{ line-height:1.5; }
   color:#4a2800;
   border:1.5px solid rgba(180,110,0,0.65);
 }
+/* Multi-star system — orange */
+.dp-btn-stellar{
+  background:rgba(210,90,0,0.32);
+  color:#5a1800;
+  border:1.5px solid rgba(210,90,0,0.65);
+}
 /* Planetary system — green */
 .dp-btn-exo{
   background:rgba(0,160,100,0.35);
