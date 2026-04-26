@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/images/Galactic.ico">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Moon System Viewer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0ede6;--pn:rgba(245,243,240,0.72);--ptx:#1a1a1a;--pdm:#6a6a6a;
+  --fs:clamp(11px,1.1vw,14px);--fs-sm:calc(var(--fs)*.85);
+  --fs-md:var(--fs);--fs-lg:calc(var(--fs)*1.2);
+  --pw:clamp(180px,18vw,280px);
+}
+body{background:var(--bg);color:var(--ptx);font-family:'Space Mono',monospace;overflow:hidden;width:100vw;height:100vh}
+#wrap{position:fixed;inset:0;background:var(--bg)}
+#hdr{position:fixed;top:0;left:0;right:0;padding:clamp(6px,.8vh,12px) 18px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(to bottom,rgba(240,237,230,.97),transparent);z-index:10;pointer-events:none}
+#hdr h1{font-family:'Orbitron',monospace;font-size:clamp(11px,1.3vw,16px);letter-spacing:.18em;color:#334;pointer-events:none}
+#hdr p{font-size:var(--fs-sm);color:#667;letter-spacing:.07em;margin-top:2px}
+#sys-title{color:#334}
+#sys-sub{font-size:var(--fs-sm);color:#888;letter-spacing:.06em;margin-top:2px}
+#back-btn{pointer-events:all;font-family:'Space Mono',monospace;font-size:var(--fs-sm);background:rgba(245,243,240,0.80);color:#1a1a1a;border:1.5px solid rgba(0,0,0,0.12);border-radius:10px;box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 2px 8px rgba(0,0,0,.08);padding:6px 16px;cursor:pointer;transition:background .15s,box-shadow .15s}
+#back-btn:hover{background:rgba(245,243,240,0.96);box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 3px 12px rgba(0,0,0,.13)}
+.pn{position:fixed;background:rgba(245,243,240,0.72);backdrop-filter:blur(28px) saturate(1.6);-webkit-backdrop-filter:blur(28px) saturate(1.6);border:none;border-radius:18px;padding:clamp(10px,1.2vh,16px) clamp(10px,1vw,16px);z-index:10;box-shadow:0 1px 0 rgba(255,255,255,0.90) inset,0 -1px 0 rgba(0,0,0,0.06) inset,1px 0 0 rgba(255,255,255,0.60) inset,-1px 0 0 rgba(255,255,255,0.30) inset,0 12px 48px rgba(0,0,0,0.10),0 2px 8px rgba(0,0,0,0.06)}
+.pn h4{font-family:'Orbitron',sans-serif;font-size:var(--fs-sm);letter-spacing:.12em;color:var(--pdm);margin-bottom:7px;text-transform:uppercase}
+#dp{top:clamp(65px,7vh,95px);right:18px;width:var(--pw);display:none;z-index:16}
+#dp h4{color:#1a1a1a;font-size:var(--fs-md);margin-bottom:8px;padding-right:18px}
+.dr{font-size:var(--fs-md);margin-bottom:4px;color:var(--ptx)}
+.dr .lb{color:#6a6a6a;display:inline-block;min-width:90px}
+#cs{position:absolute;top:7px;right:9px;font-size:var(--fs-lg);color:#6a6a6a;cursor:pointer;background:none;border:none}
+#cs:hover{color:#1a1a1a}
+#dr-wiki{margin-top:4px}
+/* #dwiki styled via .dp-btn.dp-btn-wiki */
+#dr-wb{margin-top:6px}
+
+/* planet rows / moon rows toggle */
+#dp-planet-rows .dr, #dp-moon-rows .dr{margin-bottom:4px}
+
+#tp{position:fixed;pointer-events:none;z-index:30;display:none;background:var(--pn);
+  border:none;border-radius:12px;box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 8px 24px rgba(0,0,0,.10);padding:7px 11px;
+  max-width:230px;backdrop-filter:blur(8px)}
+#tp h3{font-family:'Orbitron',sans-serif;font-size:var(--fs-lg);color:#88bbff;margin-bottom:3px}
+#tp p{font-size:var(--fs-md);color:var(--ptx);line-height:1.6}
+#ds{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);
+  font-size:var(--fs-sm);color:#8899aa;pointer-events:none;z-index:10;letter-spacing:.05em}
+/* playback */
+#tc{bottom:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;
+  gap:10px;padding:7px 14px;white-space:nowrap}
+#btn-play{font-family:'Space Mono',monospace;font-size:var(--fs-md);
+  background:rgba(0,102,204,.55);color:var(--ptx);
+  border:1px solid rgba(100,150,255,.4);border-radius:10px;
+  padding:5px 14px;cursor:pointer;transition:background .15s}
+#btn-play:hover{background:rgba(0,102,204,.75)}
+#speed-sl{width:clamp(70px,7vw,120px);height:2px;-webkit-appearance:none;
+  background:rgba(100,150,255,.2);outline:none;border-radius:2px;cursor:pointer}
+#speed-lbl{font-size:var(--fs-sm);color:#88bbff;min-width:60px}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="/static/css/worldbuilding.css">
+</head>
+<body>
+<div id="wrap"></div>
+<div id="hdr">
+  <div>
+    <h1 id="sys-title">MOON SYSTEM</h1>
+    <p id="sys-sub">Loading…</p>
+  </div>
+  <button id="back-btn" onclick="window.history.length>1?history.back():window.close()">✕ Close</button>
+</div>
+
+<div class="pn" id="dp">
+  <button id="cs">✕</button>
+  <h4 id="dn">—</h4>
+
+  <!-- Planet (center body) rows -->
+  <div id="dp-planet-rows" style="display:none">
+    <div class="dr"><span class="lb">Type      </span><span id="dp-type"></span></div>
+    <div class="dr"><span class="lb">Radius    </span><span id="dp-rad"></span></div>
+    <div class="dr"><span class="lb">Orbit     </span><span id="dp-orb"></span></div>
+    <div class="dr"><span class="lb">Period    </span><span id="dp-per"></span></div>
+    <div class="dr"><span class="lb">Moons     </span><span id="dp-moons"></span></div>
+    <!-- Texture upload -->
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(0,0,0,0.08)">
+      <div style="font-size:var(--fs-sm);color:var(--pdm);margin-bottom:6px">Surface Map</div>
+      <label id="tex-label" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+        padding:6px 12px;border-radius:10px;font-size:var(--fs-sm);font-family:'Space Mono',monospace;
+        background:rgba(0,102,204,0.18);color:#003388;border:1.5px solid rgba(0,102,204,0.40);
+        transition:filter .15s">
+        🌍 Upload Map
+        <input type="file" id="tex-input" accept="image/*" style="display:none">
+      </label>
+      <span id="tex-name" style="display:block;font-size:calc(var(--fs)*0.78);color:var(--pdm);margin-top:4px">No map loaded · equirectangular PNG/JPG</span>
+      <a id="tex-clear" href="#" style="display:none;font-size:calc(var(--fs)*0.78);color:#cc4444;margin-top:2px;text-decoration:none">✕ Remove texture</a>
+    </div>
+  </div>
+
+  <!-- Moon rows -->
+  <div id="dp-moon-rows" style="display:none">
+    <div class="dr"><span class="lb">Type      </span><span id="dm-type"></span></div>
+    <div class="dr"><span class="lb">Orbit     </span><span id="dm-orb"></span></div>
+    <div class="dr"><span class="lb">Period    </span><span id="dm-per"></span></div>
+    <div class="dr"><span class="lb">Radius    </span><span id="dm-rad"></span></div>
+    <div class="dr"><span class="lb">Atmosphere</span><span id="dm-atm"></span></div>
+  </div>
+
+  <div id="dr-wiki" style="display:none;margin-top:4px">
+    <a id="dwiki" href="#" target="_blank" rel="noopener" class="dp-btn dp-btn-wiki">⬡ Wikipedia</a>
+  </div>
+  <div id="dr-wb" style="display:none;margin-top:6px">
+    <button id="btn-wb" class="dp-btn dp-btn-wb">✎ Notes</button>
+  </div>
+  <div id="dr-reset" style="display:none;margin-top:6px">
+    <button id="btn-reset" class="dp-btn" style="background:rgba(0,0,0,0.08);color:#444;border:1.5px solid rgba(0,0,0,0.18)"
+      onclick="camFlyTo(new THREE.Vector3(0,0,0),null);$('dr-reset').style.display='none'">↩ Reset View</button>
+  </div>
+</div>
+
+<!-- WB panel injected by worldbuilding-panel.js -->
+
+<div class="pn" id="tc">
+  <button id="btn-play">⏸</button>
+  <label style="font-size:var(--fs-sm);color:var(--pdm)">Speed</label>
+  <input type="range" id="speed-sl" min="0.01" max="10" step="0.01" value="1">
+  <span id="speed-lbl" style="font-size:var(--fs-sm);color:#88bbff;min-width:60px">×1 d/s</span>
+</div>
+
+<div id="tp"><h3 id="tn"></h3><p id="tb"></p></div>
+<div id="ds">MOON SYSTEM · KEPLERIAN ORBITS</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/static/js/worldbuilding-panel.js"></script>
+<script src="/static/js/worldbuilding.js"></script>
+<script>
+'use strict';
+
+// ── Shared WB setup ──────────────────────────────────────────────────────────
+// WB_API and $ defined by worldbuilding.js — no redeclaration needed
+document.addEventListener('DOMContentLoaded', ()=>{
+  wbInjectPanel();
+  const p = document.getElementById('wb-panel');
+  if(p){
+    p.style.cssText += ';position:fixed;top:clamp(70px,7vh,100px);'
+      + 'right:calc(var(--pw) + 28px);width:clamp(300px,28vw,420px);'
+      + 'max-height:calc(100vh - clamp(70px,7vh,100px) - 30px);'
+      + 'background:var(--pn);border:1px solid rgba(160,80,220,.35);'
+      + 'border-radius:8px;z-index:20;backdrop-filter:blur(12px);overflow:hidden;';
+  }
+  // Pre-load refs so era/faction dropdowns work without clicking a star first
+  if(typeof wbLoadRefs==='function') wbLoadRefs();
+});
+
+// ── URL PARAMS ───────────────────────────────────────────────────────────────
+const params      = new URLSearchParams(window.location.search);
+const TARGET_PLANET   = (params.get('planet') ||'').trim();
+const TARGET_PARENT   = (params.get('parent') ||'Sol').trim();
+const TARGET_PLANET_ID= parseInt(params.get('planet_id')||'0')||0;
+const TARGET_R_KM     = parseFloat(params.get('r_km')||'6371');
+const TARGET_COLOR    = '#'+(params.get('color')||'2266aa');
+const TARGET_TYPE     = (params.get('type')||'Planet').trim();
+const TARGET_ORBIT_AU = parseFloat(params.get('orbit_au')||'0');
+const TARGET_PERIOD   = parseFloat(params.get('period')||'365');
+// Host star context — passed from exo/solar viewer
+const TARGET_STAR_NAME  = (params.get('star_name')||TARGET_PARENT).trim();
+const TARGET_STAR_HIP   = (params.get('star_hip')||'').trim();
+const TARGET_STAR_HD    = (params.get('star_hd')||'').trim();
+const TARGET_STAR_SPECT = (params.get('star_spect')||'').trim();
+const TARGET_STAR_ABSMAG= parseFloat(params.get('star_absmag')||'NaN');
+const TARGET_STAR_DIST  = parseFloat(params.get('star_dist')||'0');
+// Derive lum from absmag + bolometric correction (same as exo viewer)
+function bcForSpectMoon(spect){
+  const s=(spect||'').trim().toUpperCase();
+  if(s.startsWith('O')) return -4.0;
+  if(s.startsWith('B')) return -2.0;
+  if(s.startsWith('A')) return -0.3;
+  if(s.startsWith('F')) return -0.1;
+  if(s.startsWith('G')) return -0.1;
+  if(s.startsWith('K')) return -0.4;
+  if(s.startsWith('M')){
+    const sub=s.length>1&&s[1]>='0'&&s[1]<='9'?parseFloat(s[1]):2.0;
+    return -(1.0+sub*0.25);
+  }
+  if(s.startsWith('D')) return -0.5;
+  return -0.1;
+}
+const TARGET_STAR_LUM = isFinite(TARGET_STAR_ABSMAG)
+  ? Math.pow(10,(4.83-(TARGET_STAR_ABSMAG+bcForSpectMoon(TARGET_STAR_SPECT)))/2.5)
+  : null;
+
+// ── SCENE ────────────────────────────────────────────────────────────────────
+const scene    = new THREE.Scene();
+scene.background = new THREE.Color(0xf0ede6);
+const camera   = new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.0001,200);
+camera.position.set(0,3,6);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.setClearColor(0xf0ede6,1);
+$('wrap').appendChild(renderer.domElement);
+window.addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+// ── ORBIT CONTROLS ───────────────────────────────────────────────────────────
+const cam={
+  sph:new THREE.Spherical(6,1.1,.5),
+  target:new THREE.Vector3(),pan:new THREE.Vector3(),
+  drag:false,right:false,last:{x:0,y:0},
+  update(){
+    this.sph.phi=Math.max(.05,Math.min(Math.PI-.05,this.sph.phi));
+    this.sph.radius=Math.max(.001,Math.min(50,this.sph.radius));
+    camera.position.setFromSpherical(this.sph).add(this.target).add(this.pan);
+    camera.lookAt(new THREE.Vector3().addVectors(this.target,this.pan));
+  }
+};
+const cvs=renderer.domElement;
+cvs.addEventListener('contextmenu',e=>e.preventDefault());
+cvs.addEventListener('mousedown',e=>{cam.drag=true;cam.right=e.button===2;cam.last={x:e.clientX,y:e.clientY};});
+window.addEventListener('mouseup',()=>cam.drag=false);
+window.addEventListener('mousemove',e=>{
+  if(!cam.drag)return;
+  const dx=e.clientX-cam.last.x,dy=e.clientY-cam.last.y;
+  if(cam.right){
+    const sp=cam.sph.radius*.0012,r=new THREE.Vector3(),u=new THREE.Vector3(0,1,0);
+    r.crossVectors(camera.getWorldDirection(new THREE.Vector3()),u).normalize();
+    cam.pan.addScaledVector(r,-dx*sp).addScaledVector(u,dy*sp);
+  } else {cam.sph.theta-=dx*.005;cam.sph.phi-=dy*.005;}
+  cam.last={x:e.clientX,y:e.clientY};
+});
+cvs.addEventListener('wheel',e=>{e.preventDefault();cam.sph.radius*=1+e.deltaY*.001;},{passive:false});
+
+// ── LABEL SYSTEM ─────────────────────────────────────────────────────────────
+const LABEL_PX_H=15,HALO_COLOR='rgba(240,237,230,0.92)',HALO_W=5;
+function makeLabel(txt,hexCol){
+  const canvH=LABEL_PX_H*3;
+  const c=document.createElement('canvas'),ctx=c.getContext('2d');
+  const fs=Math.round(canvH*.78);
+  ctx.font=`700 ${fs}px "Space Mono",monospace`;
+  const tw=Math.ceil(ctx.measureText(txt).width)+HALO_W*2+10;
+  c.width=tw;c.height=canvH;
+  ctx.font=`700 ${fs}px "Space Mono",monospace`;
+  ctx.lineWidth=HALO_W*2;ctx.lineJoin='round';ctx.strokeStyle=HALO_COLOR;ctx.strokeText(txt,HALO_W+5,fs);
+  const ri=parseInt(hexCol.slice(1,3),16)/255;
+  const gi=parseInt(hexCol.slice(3,5),16)/255;
+  const bi=parseInt(hexCol.slice(5,7),16)/255;
+  ctx.fillStyle=`rgb(${Math.round(ri*.3*255)},${Math.round(gi*.3*255)},${Math.round(Math.min(bi*.3+.1,1)*255)})`;
+  ctx.fillText(txt,HALO_W+5,fs);
+  const tex=new THREE.CanvasTexture(c);
+  tex.minFilter=tex.magFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,opacity:.95,depthWrite:false,depthTest:false}));
+  sp.renderOrder=999;sp.userData.aspect=tw/canvH;sp.scale.set(1,1,1);
+  return sp;
+}
+const _ndc=new THREE.Vector3(),_off=new THREE.Vector3();
+function updateLabelScale(sprite,wx,wy,wz){
+  const H=renderer.domElement.clientHeight||innerHeight;
+  const W=renderer.domElement.clientWidth||innerWidth;
+  _ndc.set(wx,wy,wz).project(camera);const depth=_ndc.z;
+  const ndcH=(LABEL_PX_H/H)*2;
+  _off.set(_ndc.x,_ndc.y+ndcH,depth).unproject(camera);
+  const wH=_off.distanceTo(new THREE.Vector3(wx,wy,wz));
+  const asp=sprite.userData.aspect||4;sprite.scale.set(wH*asp,wH,1);
+  const ndcX=(8/W)*2;_off.set(_ndc.x+ndcX,_ndc.y,depth).unproject(camera);
+  sprite.position.set(_off.x+wH*asp*.5,_off.y+wH*.5,_off.z);
+}
+
+// ── MOON TYPE CLASSIFIER ─────────────────────────────────────────────────────
+function moonType(r_km){
+  if(!r_km||r_km<=0) return {label:'Moon',color:'#aaaaaa'};
+  if(r_km>2000)  return {label:'Large Moon',  color:'#8899bb'};
+  if(r_km>500)   return {label:'Mid Moon',    color:'#7788aa'};
+  if(r_km>50)    return {label:'Small Moon',  color:'#667799'};
+  return              {label:'Moonlet',        color:'#556688'};
+}
+
+// ── ORBIT PATH ───────────────────────────────────────────────────────────────
+function makeOrbitLine(a,e,color,inc_deg,argp_deg){
+  const inc=(inc_deg||0)*Math.PI/180;
+  const argp=(argp_deg||0)*Math.PI/180;
+  const pts=[];
+  for(let i=0;i<=256;i++){
+    const f=i/256*Math.PI*2;
+    const r=a*(1-e*e)/(1+e*Math.cos(f));
+    const xOrb=r*Math.cos(f+argp);
+    const yOrb=r*Math.sin(f+argp);
+    pts.push(new THREE.Vector3(xOrb,yOrb*Math.sin(inc),yOrb*Math.cos(inc)));
+  }
+  const mat=new THREE.LineBasicMaterial({color:parseInt(color.slice(1),16),transparent:true,opacity:.3});
+  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),mat);
+}
+
+// ── BODY MESH ─────────────────────────────────────────────────────────────────
+function makeBodyMesh(r_vis,color){
+  const c=new THREE.Color(color);
+  const dark=new THREE.Color(c.r*.28,c.g*.28,c.b*.28+.04);
+  return new THREE.Mesh(
+    new THREE.SphereGeometry(r_vis,20,14),
+    new THREE.MeshPhongMaterial({color:dark,emissive:dark.clone().multiplyScalar(.35),
+      specular:new THREE.Color(.08,.08,.12),shininess:25})
+  );
+}
+
+// ── PLANET TEXTURE & SPIN ─────────────────────────────────────────────────────
+let planetMeshRef = null;
+let planetSpinAngle = 0;
+const PLANET_SPIN_RATE = 0.08;
+let planetBaseColor = '#2266aa';
+let planetHasTexture = false;
+let resolvedPlanetId = TARGET_PLANET_ID || 0; // may be updated after ensurePlanetRecord
+
+// Ensure the planet exists in wb_planets, creating star+planet if needed.
+// Returns the wb_planets id, or 0 on failure.
+async function ensurePlanetRecord(){
+  if(resolvedPlanetId) return resolvedPlanetId;
+  try{
+    // Ensure star record exists
+    let starId = null;
+    if(TARGET_STAR_HIP){
+      let star = await fetch('/api/world/stars/by_hip/'+TARGET_STAR_HIP).then(r=>r.ok?r.json():null).catch(()=>null);
+      if(!star){
+        const res = await fetch('/api/world/stars',{method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({hip:parseInt(TARGET_STAR_HIP)||null, fictional_name:'', plot_notes:''})
+        });
+        star = res.ok ? await res.json() : null;
+      }
+      starId = star?.id || null;
+    }
+    if(!starId) return 0;
+    // Check if planet already exists under this star
+    const planets = await fetch('/api/world/planets/by_star/'+starId).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    let planet = planets.find(p=>p.nasa_pl_name===TARGET_PLANET||p.fictional_name===TARGET_PLANET);
+    if(!planet){
+      const res = await fetch('/api/world/planets',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          star_id: starId,
+          nasa_pl_name: TARGET_PLANET,
+          fictional_name: '',
+          world_type: TARGET_TYPE||'Rocky',
+          orbit_au: TARGET_ORBIT_AU||null,
+          period_days: TARGET_PERIOD||null,
+          radius_earth: TARGET_R_KM ? TARGET_R_KM/6371 : null,
+        })
+      });
+      planet = res.ok ? await res.json() : null;
+    }
+    resolvedPlanetId = planet?.id || 0;
+    return resolvedPlanetId;
+  }catch(e){ console.warn('ensurePlanetRecord failed:',e); return 0; }
+}
+
+function applyPlanetTexture(file){
+  if(!planetMeshRef) return;
+  const reader = new FileReader();
+  reader.onload = async e=>{
+    const dataUrl = e.target.result;
+    const img = new Image();
+    img.onload = async ()=>{
+      const oc = document.createElement('canvas');
+      oc.width = img.naturalWidth; oc.height = img.naturalHeight;
+      oc.getContext('2d').drawImage(img,0,0);
+      const tex = new THREE.CanvasTexture(oc);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.needsUpdate = true;
+      planetMeshRef.material = new THREE.MeshBasicMaterial({map:tex});
+      planetHasTexture = true;
+      $('tex-name').textContent = file.name;
+      $('tex-clear').style.display = 'block';
+      // Ensure planet record exists then save map
+      const pid = await ensurePlanetRecord();
+      if(pid){
+        try{
+          await fetch(`/api/world/planets/${pid}/surface_map`,{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({data_url:dataUrl})
+          });
+        }catch(err){ console.warn('Surface map save failed:',err); }
+      }
+    };
+    img.src = dataUrl;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function loadSurfaceMap(planetId){
+  // Fetch planet record to get surface_map filename
+  if(!planetId || !planetMeshRef) return;
+  try{
+    const res = await fetch(`/api/world/planets/${planetId}/surface_map`);
+    if(!res.ok) return;
+    const {url} = await res.json();
+    if(!url) return;
+    const img = new Image();
+    img.onload = ()=>{
+      const oc = document.createElement('canvas');
+      oc.width = img.naturalWidth; oc.height = img.naturalHeight;
+      oc.getContext('2d').drawImage(img,0,0);
+      const tex = new THREE.CanvasTexture(oc);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.needsUpdate = true;
+      planetMeshRef.material = new THREE.MeshBasicMaterial({map:tex});
+      planetHasTexture = true;
+      $('tex-name').textContent = url.split('/').pop();
+      $('tex-clear').style.display = 'block';
+    };
+    img.src = url;
+  }catch(err){ console.warn('Surface map load failed:',err); }
+}
+
+async function clearPlanetTexture(){
+  if(!planetMeshRef) return;
+  const col = parseInt(planetBaseColor.slice(1),16)||0x2266aa;
+  const c = new THREE.Color(col);
+  const dark = new THREE.Color(c.r*.28, c.g*.28, c.b*.28+.04);
+  planetMeshRef.material = new THREE.MeshPhongMaterial({
+    color: dark, emissive: dark.clone().multiplyScalar(.35),
+    specular: new THREE.Color(.08,.08,.12), shininess: 25
+  });
+  planetHasTexture = false;
+  $('tex-name').textContent = 'No map loaded · equirectangular PNG/JPG';
+  $('tex-clear').style.display = 'none';
+  const pid = resolvedPlanetId || await ensurePlanetRecord();
+  if(pid){
+    try{ await fetch(`/api/world/planets/${pid}/surface_map`,{method:'DELETE'}); }
+    catch(err){ console.warn('Surface map delete failed:',err); }
+  }
+}
+
+// ── MOON TEXTURE ──────────────────────────────────────────────────────────────
+const MOON_TEX_ZOOM_THRESHOLD = 1.5; // scene units — load texture when closer than this
+
+function applyTextureToMesh(mesh, url, onDone){
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = ()=>{
+    const oc = document.createElement('canvas');
+    oc.width = img.naturalWidth; oc.height = img.naturalHeight;
+    oc.getContext('2d').drawImage(img,0,0);
+    const tex = new THREE.CanvasTexture(oc);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.needsUpdate = true;
+    mesh.material = new THREE.MeshBasicMaterial({map:tex});
+    if(onDone) onDone();
+  };
+  img.src = url;
+}
+
+async function tryLoadMoonTexture(mo){
+  if(mo.texLoaded || !mo.wb_id) return;
+  mo.texLoaded = true; // mark attempted so we don't retry every frame
+  try{
+    const res = await fetch(`/api/world/moons/${mo.wb_id}/surface_map`);
+    if(!res.ok) return;
+    const {url} = await res.json();
+    if(!url) return;
+    applyTextureToMesh(mo.mesh, url, ()=>{ mo.hasTexture=true; });
+  }catch(e){}
+}
+
+// Auto-load planet surface map when scene builds
+async function tryAutoLoadPlanetMap(){
+  if(!resolvedPlanetId || !planetMeshRef) return;
+  try{
+    const res = await fetch(`/api/world/planets/${resolvedPlanetId}/surface_map`);
+    if(!res.ok) return;
+    const {url} = await res.json();
+    if(!url) return;
+    applyTextureToMesh(planetMeshRef, url, ()=>{
+      planetHasTexture=true;
+      const fname=url.split('/').pop();
+      if($('tex-name')) $('tex-name').textContent=fname;
+      if($('tex-clear')) $('tex-clear').style.display='block';
+    });
+  }catch(e){}
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  $('tex-input').addEventListener('change', e=>{
+    const f = e.target.files[0]; if(!f) return;
+    applyPlanetTexture(f, TARGET_PLANET_ID);
+    e.target.value = '';
+  });
+  $('tex-clear').addEventListener('click', e=>{
+    e.preventDefault();
+    clearPlanetTexture(TARGET_PLANET_ID);
+  });
+});
+
+// ── LIGHTING ─────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xf0ede6,.4));
+const bodyLight=new THREE.PointLight(0xffeedd,1.5,30);
+scene.add(bodyLight);
+
+// ── SIM STATE ─────────────────────────────────────────────────────────────────
+let moonObjects=[];
+let simDays=0;
+let playing=true;
+let simSpeed=1;
+
+window.addEventListener('DOMContentLoaded',()=>{
+  const btn=$('btn-play');
+  btn.addEventListener('click',()=>{
+    playing=!playing;
+    btn.textContent=playing?'⏸':'▶';
+    btn.style.background=playing?'rgba(0,102,204,.55)':'rgba(0,102,204,.25)';
+  });
+  $('speed-sl').addEventListener('input',e=>{
+    simSpeed=+e.target.value;
+    $('speed-lbl').textContent='×'+simSpeed.toFixed(simSpeed<1?2:0)+' d/s';
+  });
+});
+
+// ── KNOWN MOON CATALOG ────────────────────────────────────────────────────────
+// [name, orbit_radii, period_days, r_km, color, world_type, atmosphere, wiki_slug]
+// orbit_radii = semi-major axis in parent planet radii
+const KNOWN_MOONS = {
+  // Earth
+  'Earth':  [
+    {name:'Moon',      a:60.27,  per:27.32,  r:1737,  color:'#aaaaaa', type:'Rocky',  atm:'None',         wiki:'Moon'},
+  ],
+  // Mars
+  'Mars':   [
+    {name:'Phobos',    a:2.76,   per:0.319,  r:11.3,  color:'#998877', type:'Rocky',  atm:'None',         wiki:'Phobos'},
+    {name:'Deimos',    a:6.92,   per:1.263,  r:6.2,   color:'#887766', type:'Rocky',  atm:'None',         wiki:'Deimos'},
+  ],
+  // Jupiter
+  'Jupiter':[
+    {name:'Io',        a:5.90,   per:1.769,  r:1821,  color:'#d4a030', type:'Rocky',  atm:'Thin',         wiki:'Io_(moon)'},
+    {name:'Europa',    a:9.40,   per:3.551,  r:1560,  color:'#c8b090', type:'Ice',    atm:'Thin',         wiki:'Europa_(moon)'},
+    {name:'Ganymede',  a:15.00,  per:7.155,  r:2634,  color:'#998877', type:'Ice',    atm:'Thin',         wiki:'Ganymede_(moon)'},
+    {name:'Callisto',  a:26.33,  per:16.69,  r:2410,  color:'#887766', type:'Ice',    atm:'None',         wiki:'Callisto_(moon)'},
+  ],
+  // Saturn
+  'Saturn': [
+    {name:'Mimas',     a:3.08,   per:0.942,  r:198,   color:'#ccbbaa', type:'Ice',    atm:'None',         wiki:'Mimas_(moon)'},
+    {name:'Enceladus', a:3.95,   per:1.370,  r:252,   color:'#ffffff', type:'Ice',    atm:'Thin',         wiki:'Enceladus'},
+    {name:'Tethys',    a:4.89,   per:1.888,  r:531,   color:'#ddccbb', type:'Ice',    atm:'None',         wiki:'Tethys_(moon)'},
+    {name:'Dione',     a:6.26,   per:2.737,  r:561,   color:'#ccbbaa', type:'Ice',    atm:'None',         wiki:'Dione_(moon)'},
+    {name:'Rhea',      a:8.74,   per:4.518,  r:764,   color:'#ccbbaa', type:'Ice',    atm:'None',         wiki:'Rhea_(moon)'},
+    {name:'Titan',     a:20.27,  per:15.95,  r:2574,  color:'#cc9940', type:'Rocky',  atm:'Dense',        wiki:'Titan_(moon)'},
+    {name:'Iapetus',   a:59.08,  per:79.32,  r:736,   color:'#887755', type:'Ice',    atm:'None',         wiki:'Iapetus_(moon)'},
+  ],
+  // Uranus
+  'Uranus': [
+    {name:'Miranda',   a:5.08,   per:1.413,  r:236,   color:'#aabbcc', type:'Ice',    atm:'None',         wiki:'Miranda_(moon)'},
+    {name:'Ariel',     a:7.47,   per:2.520,  r:579,   color:'#aabbcc', type:'Ice',    atm:'None',         wiki:'Ariel_(moon)'},
+    {name:'Umbriel',   a:10.40,  per:4.144,  r:585,   color:'#889999', type:'Ice',    atm:'None',         wiki:'Umbriel_(moon)'},
+    {name:'Titania',   a:17.07,  per:8.706,  r:789,   color:'#aabbcc', type:'Ice',    atm:'None',         wiki:'Titania_(moon)'},
+    {name:'Oberon',    a:22.83,  per:13.46,  r:761,   color:'#889999', type:'Ice',    atm:'None',         wiki:'Oberon_(moon)'},
+  ],
+  // Neptune
+  'Neptune':[
+    {name:'Proteus',   a:4.75,   per:1.122,  r:210,   color:'#7788aa', type:'Rocky',  atm:'None',         wiki:'Proteus_(moon)'},
+    {name:'Triton',    a:14.33,  per:5.877,  r:1353,  color:'#99aacc', type:'Ice',    atm:'Thin',         wiki:'Triton_(moon)'},
+    {name:'Nereid',    a:222.7,  per:360.1,  r:170,   color:'#7788aa', type:'Rocky',  atm:'None',         wiki:'Nereid_(moon)'},
+  ],
+};
+
+// ── KEPLERIAN POSITION ────────────────────────────────────────────────────────
+function keplerPos(a,e,inc_deg,argp_deg,period,days){
+  const M=(days/period*Math.PI*2)%(Math.PI*2);
+  let E=M;for(let i=0;i<10;i++)E=M+e*Math.sin(E);
+  const f=2*Math.atan2(Math.sqrt(1+e)*Math.sin(E/2),Math.sqrt(1-e)*Math.cos(E/2));
+  const r=a*(1-e*Math.cos(E));
+  const argp=(argp_deg||0)*Math.PI/180;
+  const inc=(inc_deg||0)*Math.PI/180;
+  const xOrb=r*Math.cos(f+argp);
+  const yOrb=r*Math.sin(f+argp);
+  return new THREE.Vector3(xOrb,yOrb*Math.sin(inc),yOrb*Math.cos(inc));
+}
+
+// ── BUILD SCENE ───────────────────────────────────────────────────────────────
+async function loadSystem(){
+  $('sys-title').textContent = TARGET_PLANET.toUpperCase()+' SYSTEM';
+
+  // Get known moons for this planet
+  const knownMoons = KNOWN_MOONS[TARGET_PLANET] || [];
+
+  // Get user moons from API
+  let userMoons = [];
+  if(TARGET_PLANET_ID){
+    try{
+      const r = await fetch('/api/world/allmoons/'+TARGET_PLANET_ID);
+      if(r.ok){ const ct=r.headers.get('content-type')||''; if(ct.includes('json')) userMoons=await r.json(); }
+    }catch(e){}
+  }
+
+  // Merge: known moons + user-created moons (mark imported known moons)
+  const importedNames = new Set(userMoons.map(m=>m.nasa_moon_name).filter(Boolean));
+  const allMoons = [];
+
+  // Known moons — apply user overlay if imported
+  for(const km of knownMoons){
+    const overlay = userMoons.find(m=>m.nasa_moon_name===km.name);
+    allMoons.push({
+      name:       km.name,
+      display_name: (overlay&&overlay.fictional_name)||km.name,
+      a:          km.a,
+      per:        km.per,
+      r_km:       (overlay&&overlay.radius_km)||km.r,
+      ecc:        (overlay&&overlay.eccentricity)||0,
+      inc:        (overlay&&overlay.inclination)||0,
+      argp:       0,
+      color:      km.color,
+      world_type: (overlay&&overlay.world_type)||km.type,
+      atmosphere: (overlay&&overlay.atmosphere)||km.atm,
+      wiki:       km.wiki,
+      source:     'known',
+      wb_id:      (overlay&&overlay.id)||null,
+    });
+  }
+
+  // User-only moons (no NASA match)
+  for(const um of userMoons){
+    if(!um.nasa_moon_name && um.orbit_radii){
+      allMoons.push({
+        name:         um.fictional_name||um.common_name||'Moon '+um.id,
+        display_name: um.fictional_name||um.common_name||'Moon '+um.id,
+        a:            um.orbit_radii,
+        per:          um.period_days || Math.sqrt(Math.pow(um.orbit_radii*TARGET_R_KM/6371,3))*27.32,
+        r_km:         um.radius_km||100,
+        ecc:          um.eccentricity||0,
+        inc:          um.inclination||0,
+        argp:         um.arg_peri||0,
+        color:        '#8899bb',
+        world_type:   um.world_type||'Rocky',
+        atmosphere:   um.atmosphere||'None',
+        wiki:         null,
+        source:       'user',
+        wb_id:        um.id,
+      });
+    }
+  }
+
+  $('sys-sub').textContent =
+    `${allMoons.length} MOON${allMoons.length!==1?'S':''} · `+
+    `ORBITS IN PLANET RADII · BODIES MAGNIFIED`+
+    (TARGET_PARENT ? ` · ${TARGET_PARENT} SYSTEM` : '');
+
+  if(!allMoons.length){
+    $('sys-sub').textContent='No known moon data for '+TARGET_PLANET
+      +' — add moons via the Worldbuilding panel';
+    return;
+  }
+
+  buildScene(allMoons);
+}
+
+function buildFallback(){
+  buildPlanet(TARGET_PLANET, 0.05);
+}
+
+function buildPlanet(name, r_vis){
+  const col = parseInt(TARGET_COLOR.slice(1),16)||0x2266aa;
+  planetBaseColor = TARGET_COLOR;
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(r_vis,32,22),
+    new THREE.MeshBasicMaterial({color:col})
+  );
+  scene.add(mesh);
+  planetMeshRef = mesh;
+  const lbl = makeLabel(name, TARGET_COLOR);
+  scene.add(lbl);
+  return {mesh, label:lbl};
+}
+
+const pickables=[];
+
+function buildScene(moons){
+  moons.sort((a,b)=>a.a-b.a);
+
+  const MIN_MOON_VIS = 0.003;
+  const MAX_PLANET_VIS = 0.08;
+  const MIN_PLANET_VIS = 0.015;
+
+  // Scale: 1 scene unit = innermost orbit semi-major axis
+  const innerOrbit = moons[0].a;
+  const outerOrbit = moons[moons.length-1].a;
+  const scale = 1 / innerOrbit;  // scene units per planet radius
+
+  // Planet visual radius — fraction of innermost orbit
+  const planetR_scene = Math.min(Math.max(innerOrbit*scale*0.12, MIN_PLANET_VIS), MAX_PLANET_VIS);
+
+  const planetObj = buildPlanet(TARGET_PLANET, planetR_scene);
+  pickables.push({mesh:planetObj.mesh, isPlanet:true,
+    data:{name:TARGET_PLANET, r_km:TARGET_R_KM, type:TARGET_TYPE,
+          orbit_au:TARGET_ORBIT_AU, period:TARGET_PERIOD, moons:moons.length}});
+
+  // Camera distance
+  const maxA = moons[moons.length-1].a * scale;
+  cam.sph.radius = Math.max(maxA*2.5, planetR_scene*8);
+
+  // Ecliptic disc
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(maxA*1.1,64),
+    new THREE.MeshBasicMaterial({color:0xc8c4bc,transparent:true,opacity:.04,side:THREE.DoubleSide,depthWrite:false})
+  );
+  disc.rotation.x = Math.PI/2;
+  scene.add(disc);
+
+  // Build moons
+  moons.forEach(md=>{
+    const a_scene = md.a * scale;
+    const {label:typeLabel, color} = moonType(md.r_km);
+    const r_vis = Math.max((md.r_km/TARGET_R_KM)*planetR_scene*2, MIN_MOON_VIS);
+
+    const orbit = makeOrbitLine(a_scene, md.ecc, md.color, md.inc, md.argp);
+    scene.add(orbit);
+
+    const mesh = makeBodyMesh(r_vis, md.color);
+    scene.add(mesh);
+
+    const lblText = md.display_name !== md.name
+      ? md.display_name
+      : (md.name.length > 8 ? md.name.slice(0,7)+'…' : md.name);
+    const lbl = makeLabel(lblText, md.color);
+    scene.add(lbl);
+
+    moonObjects.push({data:md, mesh, label:lbl, typeLabel,
+      a_scene, scale, r_vis, color:md.color,
+      wb_id: md.wb_id||null,         // worldbuilding DB id for map lookup
+      hasTexture: false,              // true once surface map applied
+      texLoaded:  false});            // true once attempted load
+  });
+
+  // Wire pickables
+  moonObjects.forEach(mo=>pickables.push({
+    mesh:mo.mesh, isMoon:true, data:mo.data, typeLabel:mo.typeLabel
+  }));
+}
+
+// ── PICKING ───────────────────────────────────────────────────────────────────
+const ray=new THREE.Raycaster();
+const mv2=new THREE.Vector2();
+
+function pick(mx,my){
+  mv2.set((mx/innerWidth)*2-1,-(my/innerHeight)*2+1);
+  ray.setFromCamera(mv2,camera);
+  const hits=ray.intersectObjects(pickables.map(p=>p.mesh),false);
+  if(!hits.length)return null;
+  return pickables.find(p=>p.mesh===hits[0].object)||null;
+}
+
+const tp=$('tp');
+cvs.addEventListener('mousemove',e=>{
+  if(cam.drag){tp.style.display='none';return;}
+  const h=pick(e.clientX,e.clientY);
+  if(h){
+    tp.style.display='block';tp.style.left=(e.clientX+14)+'px';tp.style.top=(e.clientY-10)+'px';
+    if(h.isPlanet){
+      $('tn').textContent=h.data.name;
+      $('tb').innerHTML=`${h.data.type} · <b>${h.data.moons}</b> moon${h.data.moons!==1?'s':''}`;
+    } else if(h.isMoon){
+      const d=h.data;
+      $('tn').textContent=d.display_name||d.name;
+      $('tb').innerHTML=`${h.typeLabel} · Orbit: <b>${d.a.toFixed(1)}</b> R<sub>p</sub> · Period: <b>${d.per.toFixed(2)}d</b>`;
+    }
+    cvs.style.cursor='pointer';
+  } else {tp.style.display='none';cvs.style.cursor='default';}
+});
+
+cvs.addEventListener('click',e=>{
+  const h=pick(e.clientX,e.clientY);
+  if(!h)return;
+  openDetail(h);
+  // Focus camera on clicked moon
+  if(h.isMoon){
+    const mo = moonObjects.find(m=>m.data===h.data);
+    if(mo){
+      const pos = mo.mesh.position;
+      // Target radius: 8× the moon's visual radius, min 0.05 scene units
+      const targetR = Math.max(mo.r_vis * 8, 0.05);
+      camFlyTo(new THREE.Vector3(pos.x, pos.y, pos.z), targetR);
+    }
+  }
+  // Click planet — fly back to origin
+  if(h.isPlanet){
+    camFlyTo(new THREE.Vector3(0,0,0), null);
+  }
+});
+
+// Smooth camera fly-to: lerp target and radius over ~40 frames
+let _flyActive = false;
+let _flyTarget = null;
+let _flyRadius = null;
+let _flyAlpha  = 0;
+const _flyStart = {target:new THREE.Vector3(), radius:1};
+
+function camFlyTo(newTarget, newRadius){
+  _flyStart.target.copy(cam.target).add(cam.pan);
+  _flyStart.radius = cam.sph.radius;
+  _flyTarget = newTarget;
+  _flyRadius = newRadius !== null ? newRadius : Math.max(cam.sph.radius, 1.5);
+  _flyAlpha  = 0;
+  _flyActive = true;
+  cam.pan.set(0,0,0);
+}
+
+function camFlyUpdate(){
+  if(!_flyActive) return;
+  _flyAlpha = Math.min(1, _flyAlpha + 0.06); // ~17 frames to complete
+  const t = 1 - Math.pow(1 - _flyAlpha, 3); // ease-out cubic
+  cam.target.lerpVectors(_flyStart.target, _flyTarget, t);
+  cam.sph.radius = _flyStart.radius + (_flyRadius - _flyStart.radius) * t;
+  if(_flyAlpha >= 1) _flyActive = false;
+}
+
+$('cs').addEventListener('click',()=>$('dp').style.display='none');
+
+function openDetail(h){
+  $('dp').style.display='block';
+  if(h.isPlanet){
+    const d=h.data;
+    $('dn').textContent=d.name;
+    $('dp-planet-rows').style.display='';
+    $('dp-moon-rows').style.display='none';
+    $('dp-type').textContent=d.type||'—';
+    $('dp-rad').textContent=d.r_km?(d.r_km*2).toLocaleString()+' km diameter':'—';
+    $('dp-orb').textContent=d.orbit_au?d.orbit_au.toFixed(4)+' AU':'—';
+    $('dp-per').textContent=d.period?d.period.toFixed(2)+' days':'—';
+    $('dp-moons').textContent=d.moons+' moon'+(d.moons!==1?'s':'');
+    $('dr-wiki').style.display='none';
+    $('dr-wb').style.display='none';
+    $('dr-reset').style.display='none';
+  } else {
+    const d=h.data;
+    $('dn').innerHTML=d.display_name!==d.name
+      ? `${d.display_name} <span style="color:var(--pdm);font-size:var(--fs-sm)">(${d.name})</span>`
+      : d.name;
+    $('dp-planet-rows').style.display='none';
+    $('dp-moon-rows').style.display='';
+    $('dm-type').innerHTML=h.typeLabel
+      + (d.source==='user'?' · <span style="color:#cc88ff">✎ User Created</span>':'');
+    $('dm-orb').textContent=d.a.toFixed(2)+' Rp ('+
+      (d.a*TARGET_R_KM/1000).toFixed(0)+' 000 km)';
+    $('dm-per').textContent=d.per.toFixed(3)+' days';
+    $('dm-rad').textContent=d.r_km?d.r_km.toFixed(0)+' km radius':'—';
+    $('dm-atm').textContent=d.atmosphere||'—';
+    // Wiki
+    if(d.wiki){
+      $('dwiki').href='https://en.wikipedia.org/wiki/'+d.wiki;
+      $('dr-wiki').style.display='';
+    } else {$('dr-wiki').style.display='none';}
+    // WB button
+    $('dr-wb').style.display='';
+    $('dr-reset').style.display='';  // show reset view for moons
+    $('btn-wb').textContent='✎ Notes';
+    $('btn-wb').onclick=async()=>{
+      const starObj={
+        name:    TARGET_STAR_NAME,
+        hip:     parseInt(TARGET_STAR_HIP)||null,
+        hd:      parseInt(TARGET_STAR_HD)||null,
+        spect:   TARGET_STAR_SPECT,
+        absmag:  TARGET_STAR_ABSMAG,
+        lum:     TARGET_STAR_LUM,
+        dist_ly: TARGET_STAR_DIST,
+      };
+      await wbOpenForStar(starObj);
+      // Switch to planets tab and activate this planet's moons
+      const planetsTab=document.querySelector('.wb-tab[data-tab="wb-tab-planets"]');
+      if(planetsTab) await new Promise(res=>{planetsTab.click();setTimeout(res,100);});
+      // Auto-open moons for current planet if wb_id known
+      if(TARGET_PLANET_ID && typeof wbOpenMoons==='function'){
+        await wbOpenMoons(TARGET_PLANET_ID, TARGET_PLANET);
+      }
+    };
+  }
+}
+
+// ── RENDER LOOP ───────────────────────────────────────────────────────────────
+let lastT=performance.now();
+function animate(){
+  requestAnimationFrame(animate);
+  const now=performance.now();
+  const dt=(now-lastT)/1000;
+  lastT=now;
+
+  if(playing) simDays+=simSpeed*dt;
+
+  // Spin planet on its axis when textured
+  if(planetMeshRef && planetHasTexture && playing){
+    planetSpinAngle += PLANET_SPIN_RATE * simSpeed * dt;
+    planetMeshRef.rotation.y = planetSpinAngle;
+  }
+
+  // Zoom-triggered moon texture loading
+  moonObjects.forEach(mo=>{
+    if(mo.texLoaded || !mo.wb_id) return;
+    const mp = mo.mesh.position;
+    const dx = camera.position.x-mp.x, dy = camera.position.y-mp.y, dz = camera.position.z-mp.z;
+    const dist = Math.sqrt(dx*dx+dy*dy+dz*dz);
+    if(dist < MOON_TEX_ZOOM_THRESHOLD) tryLoadMoonTexture(mo);
+  });
+
+  camFlyUpdate();
+  cam.update();
+
+  // Update moon positions
+  moonObjects.forEach(mo=>{
+    const d=mo.data;
+    const pos=keplerPos(mo.a_scene,d.ecc||0,d.inc||0,d.argp||0,d.per,simDays);
+    mo.mesh.position.copy(pos);
+    updateLabelScale(mo.label, pos.x, pos.y, pos.z);
+  });
+
+  // Planet label stays at origin
+  if(pickables[0]&&pickables[0].isPlanet){
+    const pobj=moonObjects.length?null:null;
+  }
+  // Update planet label position (always at origin)
+  const planetPickable=pickables.find(p=>p.isPlanet);
+  if(planetPickable){
+    const planetMesh=planetPickable.mesh;
+    // find the label sprite (second child of scene added after planet mesh)
+    scene.children.forEach(c=>{
+      if(c.isSprite&&c.userData.aspect){
+        // Check if it's the planet label (position near 0,0,0)
+        if(c.position.length()<0.2){
+          updateLabelScale(c,0,0,0);
+        }
+      }
+    });
+  }
+
+  renderer.render(scene,camera);
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+loadSystem().then(()=>{
+  tryAutoLoadPlanetMap();
+  animate();
+}).catch(err=>{
+  $('sys-sub').textContent='Error loading system: '+err.message;
+  console.error('loadSystem error:', err);
+  animate(); // still render the empty scene
+});
+</script>
+</body>
+</html>

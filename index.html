@@ -1,0 +1,2099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/images/Galactic.ico">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Local Galactic Neighborhood — 120 LY</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Orbitron:wght@400;700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0ede6;
+  --ink:#1a1a1a;
+  --ac:#0066cc;
+  --ac2:#cc4400;
+  --tx:#1a2a3e;
+  --dm:#8899aa;
+  --pn:rgba(245,243,240,0.72);
+  --ptx:#1a1a1a;
+  --pdm:#6a6a6a;
+
+  /* ── Fluid scale ─────────────────────────────────────────────────────────
+     Scales from 12px (tiny screens) through 14px (1080p laptop) to 18px
+     (1440p widescreen). All UI elements are expressed in multiples of --fs.
+     Formula: clamp(min, preferred_vw, max)
+     At 1366px wide: 1.1vw ≈ 15px  → clamp gives 14px  (laptop sweet-spot)
+     At 1920px wide: 1.1vw ≈ 21px  → clamp gives 18px  (1080p monitor)
+     At 2560px wide: 1.1vw ≈ 28px  → clamp gives 18px  (1440p, capped)     */
+  --fs: clamp(12px, 1.1vw, 18px);
+
+  /* Derived sizes — multiples of --fs */
+  --fs-sm:  calc(var(--fs) * 0.78);   /* small labels, meta text       */
+  --fs-md:  var(--fs);                 /* body / panel content          */
+  --fs-lg:  calc(var(--fs) * 1.25);   /* panel headings, tooltip title */
+  --fs-xl:  calc(var(--fs) * 1.6);    /* page h1                       */
+  --fs-hdr: calc(var(--fs) * 1.1);    /* header subtitle & star count  */
+
+  /* Panel widths as vw so they shrink on smaller screens too */
+  --pw-spec:  clamp(180px, 19vw, 320px);   /* spectral types panel   */
+  --pw-filt:  clamp(170px, 17vw, 295px);   /* filters panel          */
+  --pw-nav:   clamp(150px, 14vw, 250px);   /* navigation help panel  */
+  --pw-det:   clamp(180px, 18vw, 285px);   /* star detail panel      */
+
+  /* Top offset — leaves room for header at any size */
+  --panel-top: clamp(90px, 8vh, 130px);
+}
+body{background:var(--bg);color:var(--tx);font-family:'Space Mono',monospace;overflow:hidden;width:100vw;height:100vh}
+canvas{display:block}#wrap{position:fixed;inset:0}
+
+/* loading */
+#ld{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:200;gap:12px;transition:opacity .8s}
+#ld h2{font-family:'Orbitron',sans-serif;font-size:calc(var(--fs)*1.8);color:var(--ac);letter-spacing:.2em}
+#lbw{width:260px;height:2px;background:rgba(0,100,200,.15);border-radius:2px;overflow:hidden}
+#lb{height:100%;width:0;background:var(--ac);box-shadow:0 0 8px rgba(0,100,200,.4);transition:width .3s}
+#lm{font-size:var(--fs-md);color:var(--dm);letter-spacing:.08em}
+
+/* header */
+#hdr{position:fixed;top:0;left:0;right:0;padding:clamp(8px,1vh,16px) 20px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(to bottom,rgba(240,237,230,.97),transparent);z-index:10;pointer-events:none}
+#hdr h1{font-family:'Orbitron',sans-serif;font-size:var(--fs-xl);font-weight:900;letter-spacing:.13em;color:var(--ink);opacity:.85}
+#hdr p{font-size:var(--fs-sm);color:var(--dm);letter-spacing:.07em;margin-top:2px}
+#sc{font-family:'Orbitron',sans-serif;font-size:var(--fs-hdr);color:var(--dm);text-align:right;line-height:1.7}
+#sc b{color:var(--ac)}
+
+/* dark UI panels */
+.pn{position:fixed;background:rgba(245,243,240,0.72);backdrop-filter:blur(28px) saturate(1.6);-webkit-backdrop-filter:blur(28px) saturate(1.6);border:none;border-radius:18px;padding:clamp(10px,1.2vh,16px) clamp(10px,1vw,16px);z-index:10;box-shadow:0 1px 0 rgba(255,255,255,0.90) inset,0 -1px 0 rgba(0,0,0,0.06) inset,1px 0 0 rgba(255,255,255,0.60) inset,-1px 0 0 rgba(255,255,255,0.30) inset,0 12px 48px rgba(0,0,0,0.10),0 2px 8px rgba(0,0,0,0.06)}
+.pn h4{font-family:'Orbitron',sans-serif;font-size:var(--fs-sm);letter-spacing:.14em;color:var(--pdm);margin-bottom:8px;text-transform:uppercase}
+#dp{top:var(--panel-top);right:18px;width:var(--pw-det);display:none;z-index:16}
+
+/* ── MENU PANEL ── */
+#menu-toggle{
+  position:fixed;top:var(--panel-top);left:18px;z-index:15;
+  width:calc(var(--fs)*2.4);height:calc(var(--fs)*2.4);
+  background:var(--pn);border:1px solid rgba(100,150,255,.25);border-radius:5px;
+  color:var(--ptx);font-size:var(--fs-lg);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(10px);transition:background .15s;line-height:1
+}
+#menu-toggle:hover{background:rgba(0,102,204,.3)}
+#menu-panel{
+  position:fixed;top:calc(var(--panel-top) + calc(var(--fs)*2.4) + 8px);left:18px;z-index:14;
+  width:clamp(220px,22vw,310px);
+  max-height:calc(100vh - var(--panel-top) - calc(var(--fs)*2.4) - 32px);
+  background:var(--pn);border:1px solid rgba(100,150,255,.18);border-radius:6px;
+  backdrop-filter:blur(10px);overflow-y:auto;overflow-x:hidden;
+  transform:translateX(calc(-100% - 28px));
+  transition:transform .22s cubic-bezier(.4,0,.2,1);
+  padding:0
+}
+#menu-panel.open{transform:translateX(0)}
+#menu-panel::-webkit-scrollbar{width:3px}
+#menu-panel::-webkit-scrollbar-thumb{background:rgba(100,150,255,.25);border-radius:2px}
+.menu-section{padding:clamp(8px,1vh,13px) clamp(10px,1vw,14px)}
+.menu-section+.menu-section{border-top:1px solid rgba(100,150,255,.1)}
+.menu-section h4{font-family:'Orbitron',sans-serif;font-size:var(--fs-sm);letter-spacing:.14em;
+  color:var(--pdm);margin-bottom:8px;text-transform:uppercase}
+
+/* spec row */
+.sr{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.sl{display:flex;align-items:center;gap:7px;font-size:var(--fs-md);color:var(--ptx);flex:1}
+.sd{width:clamp(8px,0.8vw,13px);height:clamp(8px,0.8vw,13px);border-radius:50%;flex-shrink:0}
+.sn{font-size:var(--fs-sm);color:var(--pdm);margin-left:3px}
+
+/* toggle switch — scales with --fs */
+.sw{position:relative;width:calc(var(--fs)*2.4);height:calc(var(--fs)*1.35);flex-shrink:0}
+.sw input{opacity:0;width:0;height:0;position:absolute}
+.sw .tk{position:absolute;inset:0;background:rgba(0,0,0,0.06);border-radius:calc(var(--fs)*0.7);transition:.2s;cursor:pointer;border:1.5px solid rgba(0,85,204,0.35)}
+.sw .tk:before{content:'';position:absolute;width:calc(var(--fs)*1.05);height:calc(var(--fs)*1.05);border-radius:50%;left:2px;top:50%;transform:translateY(-50%);background:#aabbcc;transition:.2s}
+.sw input:checked+.tk{background:rgba(0,102,204,.25);border-color:rgba(0,102,204,.6)}
+.sw input:checked+.tk:before{transform:translateY(-50%) translateX(calc(var(--fs)*1.1));background:#0088ff;box-shadow:0 0 6px #0088ff}
+
+.fr{margin-bottom:8px}
+.fr label{font-size:var(--fs-md);color:var(--ptx);display:flex;justify-content:space-between;margin-bottom:3px}
+.fr label span{color:#88bbff}
+input[type=range]{width:100%;height:3px;-webkit-appearance:none;background:rgba(100,150,255,.2);outline:none;border-radius:2px;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:calc(var(--fs)*0.9);height:calc(var(--fs)*0.9);border-radius:50%;background:#0088ff;cursor:pointer;box-shadow:0 0 5px #0088ff}
+
+.cr{font-size:var(--fs-md);color:var(--ptx);margin-bottom:4px}
+.cr b{color:#88bbff;font-weight:normal}
+
+/* detail panel */
+#dp h4{color:#1a1a1a;font-size:var(--fs-md);margin-bottom:8px;padding-right:18px}
+.dr{font-size:var(--fs-md);margin-bottom:4px;color:var(--ptx)}
+.dr .lb{color:#6a6a6a}
+#cs{position:absolute;top:7px;right:9px;font-size:var(--fs-lg);color:#6a6a6a;cursor:pointer;background:none;border:none}
+#cs:hover{color:#1a1a1a}
+
+/* tooltip */
+#tp{position:fixed;pointer-events:none;z-index:30;display:none;background:var(--pn);border:none;border-radius:12px;box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 8px 24px rgba(0,0,0,.10);padding:8px 12px;max-width:clamp(200px,18vw,320px);backdrop-filter:blur(8px)}
+#tp h3{font-family:'Orbitron',sans-serif;font-size:var(--fs-lg);color:#88bbff;margin-bottom:5px}
+#tp p{font-size:var(--fs-md);color:var(--ptx);line-height:1.7}
+#tp p b{color:#ffaa66;font-weight:normal}
+
+#ds{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);font-size:var(--fs-sm);color:var(--dm);letter-spacing:.06em;pointer-events:none;z-index:10}
+
+/* ── SEARCH ── */
+#srch-wrap{position:fixed;bottom:calc(var(--fs-sm) + 1.4em + 12px);left:50%;transform:translateX(-50%);z-index:20;width:clamp(240px,28vw,420px)}
+#srch-row{display:flex;gap:0;align-items:stretch}
+#srch-input{
+  flex:1;height:calc(var(--fs)*2.4);padding:0 10px;
+  font-family:'Space Mono',monospace;font-size:var(--fs-md);letter-spacing:.05em;
+  background:rgba(245,243,240,0.80);color:#1a1a1a;
+  border:1px solid rgba(0,0,0,.12);border-right:none;
+  border-radius:10px 0 0 10px;outline:none;
+  backdrop-filter:blur(20px);transition:border-color .15s;
+}
+#srch-input::placeholder{color:var(--pdm);letter-spacing:.04em}
+#srch-input:focus{border-color:rgba(102,51,204,.5)}
+#srch-btn{
+  width:calc(var(--fs)*2.4);height:calc(var(--fs)*2.4);flex-shrink:0;
+  background:rgba(0,85,204,.20);border:1px solid rgba(0,0,0,.12);
+  border-radius:0 10px 10px 0;cursor:pointer;color:#0044aa;font-size:var(--fs-lg);
+  display:flex;align-items:center;justify-content:center;transition:background .15s;
+}
+#srch-btn:hover{background:rgba(0,85,204,.35)}
+#srch-clear{
+  display:none;width:calc(var(--fs)*2.1);height:calc(var(--fs)*2.4);flex-shrink:0;margin-left:4px;
+  background:rgba(245,243,240,0.80);border:1px solid rgba(0,0,0,.10);
+  border-radius:8px;cursor:pointer;color:#6a6a6a;font-size:var(--fs-lg);
+  align-items:center;justify-content:center;transition:color .15s;
+}
+#srch-clear:hover{color:#1a1a1a}
+#srch-results{
+  display:none;position:absolute;bottom:calc(var(--fs)*2.6);left:0;right:0;
+  background:rgba(245,243,240,0.92);border:none;
+  border-radius:14px;backdrop-filter:blur(28px) saturate(1.6);
+  max-height:clamp(200px,35vh,360px);overflow-y:auto;
+  box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 -8px 32px rgba(0,0,0,.12);
+}
+#srch-results::-webkit-scrollbar{width:4px}
+#srch-results::-webkit-scrollbar-track{background:transparent}
+#srch-results::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:2px}
+.srch-item{
+  padding:clamp(5px,.6vh,9px) 12px;font-size:var(--fs-md);color:#1a1a1a;cursor:pointer;
+  display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid rgba(100,150,255,.08);transition:background .1s;
+}
+.srch-item:last-child{border-bottom:none}
+.srch-item:hover,.srch-item.srch-active{background:rgba(0,102,204,.25)}
+.srch-item .si-name{font-weight:700;letter-spacing:.04em}
+.srch-item .si-meta{color:#6a6a6a;font-size:var(--fs-sm);text-align:right;line-height:1.5}
+.srch-none{padding:8px 12px;font-size:var(--fs-md);color:#8a8a8a;font-style:italic}
+/* WB styles → /static/css/worldbuilding.css */
+</style>
+<link rel="stylesheet" href="/static/css/worldbuilding.css">
+</head>
+<body>
+<div id="ld"><h2>INITIALIZING STAR MAP</h2><div id="lbw"><div id="lb"></div></div><div id="lm">Building scene…</div></div>
+<div id="wrap"></div>
+
+<div id="hdr">
+  <div><h1>LOCAL GALACTIC NEIGHBORHOOD</h1><p>HYG DATABASE · 120 LY RADIUS · GALACTIC COORDINATES · SOL ORIGIN</p></div>
+  <div id="sc">STARS VISIBLE<br><b id="cn">—</b></div>
+</div>
+
+<!-- Search bar -->
+<div id="srch-wrap">
+  <div id="srch-row">
+    <input id="srch-input" type="text" placeholder="🔭 Search stars…" autocomplete="off" spellcheck="false">
+    <button id="srch-btn" title="Search">⌕</button>
+    <button id="srch-clear" title="Clear">✕</button>
+  </div>
+  <div id="srch-results"></div>
+</div>
+
+<!-- ═══ MENU PANEL (Spectral · Filters · Navigation) ═══════════════════ -->
+<button id="menu-toggle" title="Map Controls">☰</button>
+<div id="menu-panel">
+
+  <div class="menu-section">
+    <h4>Spectral Types</h4>
+    <div class="sr"><span class="sl"><span class="sd" style="background:#9bb0ff"></span>O/B — Blue Giants</span><label class="sw"><input type="checkbox" id="tOB" checked><span class="tk"></span></label></div>
+    <div class="sr"><span class="sl"><span class="sd" style="background:#cad7ff"></span>A — Blue-White</span><label class="sw"><input type="checkbox" id="tA" checked><span class="tk"></span></label></div>
+    <div class="sr"><span class="sl"><span class="sd" style="background:#c8c0a0"></span>F — White</span><label class="sw"><input type="checkbox" id="tF" checked><span class="tk"></span></label></div>
+    <div class="sr"><span class="sl"><span class="sd" style="background:#d4a030"></span>G — Yellow (Sun-like)</span><label class="sw"><input type="checkbox" id="tG" checked><span class="tk"></span></label></div>
+    <div class="sr"><span class="sl"><span class="sd" style="background:#cc6010"></span>K — Orange</span><label class="sw"><input type="checkbox" id="tK" checked><span class="tk"></span></label></div>
+    <div class="sr"><span class="sl"><span class="sd" style="background:#bb2200"></span>M — Red Dwarfs<span class="sn">off by default</span></span><label class="sw"><input type="checkbox" id="tM"><span class="tk"></span></label></div>
+    <div class="sr"><span class="sl"><span class="sd" style="background:#6080b0"></span>D — White Dwarfs</span><label class="sw"><input type="checkbox" id="tD" checked><span class="tk"></span></label></div>
+    <div class="sr"><span class="sl"><span class="sd" style="background:#208050"></span>Other</span><label class="sw"><input type="checkbox" id="tX" checked><span class="tk"></span></label></div>
+  </div>
+
+  <div class="menu-section">
+    <h4>Filters &amp; Display</h4>
+    <div class="fr"><label>Max Distance (ly) <span id="vd">120</span></label><input type="range" id="sd" min="10" max="120" value="120" step="5"></div>
+    <div class="fr"><label>Max Visual Mag <span id="vm">15</span></label><input type="range" id="sm" min="1" max="20" value="15" step="0.5"></div>
+    <div class="sr" style="margin-bottom:6px"><span style="font-size:var(--fs-md);color:var(--ptx)">★ Name Labels</span><label class="sw"><input type="checkbox" id="tL" checked><span class="tk"></span></label></div>
+    <div class="sr" style="margin-bottom:6px"><span style="font-size:var(--fs-md);color:var(--ptx)">✦ Star Glow</span><label class="sw"><input type="checkbox" id="tGl" checked><span class="tk"></span></label></div>
+    <div class="sr" style="margin-bottom:6px"><span style="font-size:var(--fs-md);color:var(--ptx)">⊕ Galactic Grid</span><label class="sw"><input type="checkbox" id="tGr" checked><span class="tk"></span></label></div>
+    <div class="sr" style="margin-bottom:6px"><span style="font-size:var(--fs-md);color:var(--ptx)">⬡ Faction Lines</span><label class="sw"><input type="checkbox" id="tFl"><span class="tk"></span></label></div>
+    <div id="faction-era-row" style="display:none;margin-bottom:6px;padding:6px 8px;background:rgba(0,0,0,.04);border-radius:8px">
+      <div style="font-size:var(--fs-sm);color:var(--pdm);margin-bottom:4px">Show era:</div>
+      <select id="faction-era-sel" class="wb-inp" style="width:100%;font-size:var(--fs-sm)">
+        <option value="0">— All Eras —</option>
+      </select>
+    </div>
+    <div class="sr"><span style="font-size:var(--fs-md);color:var(--ptx)">↻ Auto-Rotate</span><label class="sw"><input type="checkbox" id="tAr"><span class="tk"></span></label></div>
+  </div>
+
+  <div class="menu-section">
+    <h4>Navigation</h4>
+    <div class="cr"><b>Drag</b> — Orbit</div>
+    <div class="cr"><b>Right-drag</b> — Pan</div>
+    <div class="cr"><b>Scroll</b> — Zoom</div>
+    <div class="cr"><b>Click</b> — Star info</div>
+    <div class="cr"><b>Dbl-click</b> — Focus</div>
+  </div>
+
+</div><!-- end menu-panel -->
+
+<div class="pn" id="dp">
+  <button id="cs">✕</button>
+  <h4 id="dn">—</h4>
+  <div class="dr" id="dr-aka" style="display:none"><span class="lb">Also Known As </span><span id="daka" style="color:#88bbff;font-style:italic"></span></div>
+  <div class="dr" id="dr-ids"><span class="lb">Catalog IDs  </span><span id="dids" style="font-size:var(--fs-sm)"></span></div>
+  <div class="dr"><span class="lb">Distance  </span><span id="dd"></span></div>
+  <div class="dr"><span class="lb">Spectral  </span><span id="dsp"></span></div>
+  <div class="dr"><span class="lb">App Mag   </span><span id="dm2"></span></div>
+  <div class="dr"><span class="lb">Abs Mag   </span><span id="da"></span></div>
+  <div class="dr"><span class="lb">Color Idx </span><span id="dci"></span></div>
+  <div class="dr"><span class="lb">Gal XYZ   </span><span id="dxy"></span></div>
+  <div class="dr" id="dr-wiki" style="display:none;margin-top:6px">
+    <a id="dwiki" href="#" target="_blank" rel="noopener noreferrer"
+       class="dp-btn dp-btn-wiki">⬡ Wikipedia</a>
+  </div>
+  <div id="dr-solar" style="display:none;margin-top:6px">
+    <button id="btn-solar" class="dp-btn dp-btn-solar">☀ Sol System</button>
+  </div>
+  <div id="dr-stellar" style="display:none;margin-top:6px">
+    <button id="btn-stellar" class="dp-btn dp-btn-stellar">⬡ Star System</button>
+  </div>
+  <div id="dr-exo" style="display:none;margin-top:6px">
+    <button id="btn-exo" class="dp-btn dp-btn-exo">⬡ Planets</button>
+  </div>
+  <div style="margin-top:8px">
+    <button id="btn-wb" class="dp-btn dp-btn-wb">✎ Notes</button>
+  </div>
+</div>
+
+<!-- WB panel injected by worldbuilding-panel.js -->
+
+
+<div id="tp"><h3 id="tn"></h3><p id="tb"></p></div>
+<div id="ds"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/static/js/worldbuilding-panel.js"></script>
+<script src="/static/js/worldbuilding.js"></script>
+<script>
+'use strict';
+
+// ── MENU PANEL TOGGLE ─────────────────────────────────────────────────────────
+(function(){
+  const btn   = document.getElementById('menu-toggle');
+  const panel = document.getElementById('menu-panel');
+
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = panel.classList.toggle('open');
+    btn.textContent = open ? '✕' : '☰';
+    btn.title = open ? 'Close menu' : 'Map Controls';
+  });
+
+  // Close when clicking anywhere on the canvas / outside the menu
+  document.addEventListener('click', e => {
+    if(panel.classList.contains('open') &&
+       !panel.contains(e.target) &&
+       e.target !== btn){
+      panel.classList.remove('open');
+      btn.textContent = '☰';
+      btn.title = 'Map Controls';
+    }
+  });
+
+  // Prevent clicks inside the panel from bubbling up and closing it
+  panel.addEventListener('click', e => e.stopPropagation());
+})();
+
+// ── EMBEDDED STAR DATA ────────────────────────────────────────────────────────
+// [name, spect, dist_ly, sceneX, sceneY, sceneZ, mag, absmag, ci]
+// Galactic frame: X=toward galactic center, Y=north pole (UP), Z=galactic east
+const RAW_STARS = [
+["Sol","G2V",0.0,0.0,0.0,0.0,-26.74,4.85,0.656],
+["Proxima Centauri","M5Ve",1.295,0.846,-0.566,0.801,11.13,15.5,1.807],
+["Rigil Kentaurus","G2V",4.367,2.724,-1.969,2.789,-0.01,4.38,0.71],
+["Toliman","K1V",4.367,2.724,-1.969,2.789,1.33,5.71,0.9],
+["Barnard\'s Star","M4Ve",5.962,-3.356,-4.189,2.596,9.54,13.22,1.57],
+["Wolf 359","M6Ve",7.782,0.627,5.606,5.36,13.44,16.55,2.034],
+["Lalande 21185","M2Ve",8.301,-3.062,6.603,3.991,7.47,10.44,1.506],
+["Sirius","A1V",8.601,6.226,5.686,-1.695,-1.46,1.42,0.009],
+["Sirius B","DA2",8.601,6.226,5.686,-1.695,8.44,11.18,0.0],
+["Luyten 726-8 A","M5Ve",8.721,0.422,-6.797,-5.449,12.6,15.3,1.87],
+["Procyon","F5IV",11.406,4.454,10.481,-0.626,0.37,2.68,0.432],
+["Procyon B","DQZ",11.406,4.454,10.481,-0.626,10.7,12.98,0.0],
+["Ran","K2V",10.489,5.251,2.409,-8.755,3.73,6.19,0.881],
+["Ross 154","M4Ve",9.693,-0.984,-9.179,2.958,10.43,13.5,1.76],
+["Ross 248","M6Ve",10.359,-7.223,-1.171,-7.332,12.29,14.79,1.87],
+["Tau Ceti","G8V",11.898,4.75,-2.716,-10.565,3.49,5.68,0.727],
+["Epsilon Indi","K5Ve",11.826,6.715,-9.607,-1.577,4.69,6.89,1.056],
+["Groombridge 34 A","M1Ve",11.618,-7.121,0.169,-9.178,8.08,10.32,1.5],
+["Luyten\'s Star","M3Ve",12.329,1.333,8.735,8.598,9.84,11.97,1.64],
+["Kapteyn\'s Star","M1Ve",12.779,12.084,1.485,-3.883,8.85,10.87,1.57],
+["Van Maanen\'s Star","DZ7",14.064,-0.455,-3.773,-13.541,12.38,14.2,0.0],
+["Ross 128","M4V",10.975,0.758,5.81,9.28,11.1,13.5,1.75],
+["61 Cygni A","K5V",11.406,-9.563,-4.433,-4.358,5.21,7.49,1.07],
+["61 Cygni B","K7V",11.484,-9.628,-4.464,-4.389,6.03,8.31,1.37],
+["Struve 2398 A","M3Ve",11.526,-11.513,-0.299,-0.462,8.9,11.15,1.51],
+["Groombridge 1618","K7V",15.89,-7.751,13.421,3.506,6.59,7.77,1.37],
+["EZ Aquarii A","M5Ve",11.262,0.506,-8.676,-7.163,13.33,16.2,1.83],
+["Ross 614 A","M4.5Ve",13.363,6.082,11.493,3.079,11.12,13.72,1.77],
+["GJ 1061","M5.5V",11.97,10.55,-0.759,-5.604,13.03,14.92,1.83],
+["Gliese 1","M1.5V",14.162,7.013,-9.1,-8.28,8.57,10.35,1.48],
+["Gliese 687","M3.5V",14.834,-14.6,2.588,0.406,9.18,11.07,1.56],
+["Gliese 674","M2.5V",14.834,4.402,-12.005,7.519,9.36,11.09,1.7],
+["Gliese 876","M4V",15.251,0.385,-11.73,-9.74,10.17,11.81,1.67],
+["Gliese 445","M1.5Ve",17.625,-14.715,9.689,-0.491,10.79,12.35,1.56],
+["GJ 1245 A","M5Ve",14.794,-14.174,-4.236,0.145,13.46,15.19,1.87],
+["EV Lacertae","M4.5Ve",16.484,-10.647,-0.459,-12.576,10.09,11.66,1.56],
+["Gliese 388","M3Ve",15.858,-1.019,13.776,7.788,9.42,11.18,1.59],
+["Gliese 809","M0V",20.757,-19.276,-2.939,-7.115,8.54,9.43,1.47],
+["Gliese 908","M1Ve",20.117,-1.899,-9.448,-17.659,8.98,10.01,1.49],
+["Gliese 205","M1.5V",18.617,12.213,10.672,-9.141,7.96,9.25,1.52],
+["Gliese 300","M4V",19.321,15.121,11.545,3.374,11.06,12.16,1.57],
+["Gliese 667 A","K3V",23.623,2.531,-18.736,14.165,6.29,7.12,1.02],
+["Gliese 667 C","M1.5V",23.623,2.531,-18.736,14.165,10.22,11.03,1.57],
+["Altair","A7Vn",16.732,-9.892,-13.476,-0.711,0.77,2.2,0.22],
+["Vega","A0Va",25.31,-23.551,-8.85,2.757,0.03,0.58,0.0],
+["Fomalhaut","A3V",25.075,6.707,-20.185,-13.279,1.16,1.73,0.145],
+["Delta Pavonis","G7IV",19.925,10.501,-16.672,2.965,3.56,4.62,0.76],
+["Eta Cassiopeiae A","F9V",19.4,-13.715,4.243,-13.048,3.46,4.61,0.577],
+["82 Eridani","G6V",19.7,16.594,-2.422,-10.337,4.27,5.36,0.712],
+["Pi3 Orionis","F6V",26.308,9.376,17.211,-17.549,3.19,3.59,0.453],
+["70 Ophiuchi A","K0V",16.585,-8.842,-12.328,6.702,4.03,5.51,0.86],
+["36 Ophiuchi A","K2V",19.55,-0.692,-15.164,12.319,5.07,6.32,0.93],
+["36 Ophiuchi B","K1V",19.55,-0.692,-15.164,12.319,5.08,6.33,0.93],
+["Gliese 570 A","K4V",19.184,0.565,-6.43,18.066,5.72,6.81,1.12],
+["Gliese 570 B","M1V",19.184,0.565,-6.43,18.066,8.07,9.16,1.48],
+["40 Eridani A","K1V",16.288,8.649,6.386,-12.236,4.43,5.92,0.827],
+["Mu Cassiopeiae A","G5V",24.432,-15.858,6.04,-17.578,5.17,6.21,0.695],
+["Sigma Draconis","K0V",18.819,-18.428,2.314,-3.035,4.67,5.88,0.79],
+["Zeta Herculis A","F9IV",35.701,-30.635,-10.848,14.778,2.81,2.65,0.645],
+["54 Piscium","K0V",36.236,-10.297,-5.794,-34.256,5.88,6.71,0.849],
+["Delta Eridani","K0IV",29.481,15.317,7.774,-23.96,3.51,3.72,0.924],
+["Beta Virginis","F9V",35.584,1.712,18.772,30.181,3.61,3.14,0.555],
+["55 Cancri A","G8V",40.248,-2.471,39.739,5.882,5.96,5.46,0.87],
+["Chi1 Orionis","G0V",28.245,4.559,23.934,-14.288,4.39,4.7,0.594],
+["Upsilon Andromedae","F9V",43.933,-20.187,8.797,-38.016,4.09,3.44,0.536],
+["Beta Aquilae","G9IV",42.824,-23.695,-35.599,-2.281,3.71,2.39,0.86],
+["Lambda Serpentis","G0V",38.454,-18.842,-11.367,31.535,4.42,3.96,0.601],
+["Rho Coronae Borealis","G2Va",56.229,-45.749,-5.329,32.255,5.4,3.77,0.6],
+["Groombridge 1830","G8V",29.837,-14.324,20.069,16.801,6.45,6.89,0.754],
+["107 Piscium","K1V",24.393,-3.558,1.293,-24.098,5.24,6.47,0.835],
+["HD 10307","G2V",39.171,-18.002,8.672,-33.692,4.96,4.58,0.623],
+["58 Eridani","G3V",43.314,25.171,21.041,-28.28,4.77,4.17,0.647],
+["HD 32147","K3V",28.506,14.963,16.01,-18.232,6.22,6.58,1.05],
+["61 Virginis","G5V",27.919,4.605,1.471,27.497,4.74,5.07,0.709],
+["Arcturus","K1III",36.725,-18.453,4.973,31.361,-0.05,0.17,1.24],
+["Pollux","K0III",33.78,0.159,33.6,-3.481,1.16,1.08,1.0],
+["Regulus","B7V",77.495,7.266,66.246,39.549,1.4,-0.52,-0.11],
+["Castor","A1V",51.539,-2.853,50.851,-7.892,1.58,0.59,-0.04],
+["Aldebaran","K5III",65.231,11.532,41.207,-49.235,0.85,-0.63,1.538],
+["18 Scorpii","G2Va",45.564,-13.254,-23.944,36.43,5.5,4.78,0.652],
+["61 Ursae Majoris","K0V",29.739,-11.022,22.596,15.885,5.31,6.52,0.79],
+["Sigma Draconis","K0V",18.819,-18.428,2.314,-3.035,4.67,5.88,0.79],
+["HD 38393","K2V",36.269,9.91,28.988,-19.414,6.63,5.9,0.91],
+["HD 192310","K2V",28.832,0.096,-28.825,-0.644,5.73,6.53,0.88],
+["HD 6582","K0V",18.493,-12.528,4.631,-12.79,5.17,6.21,0.848],
+["HD 17925","K1Ve",33.398,3.493,8.357,-32.147,6.05,5.99,0.878],
+["HD 13445","K1V",35.584,19.423,-7.132,-28.949,6.12,6.0,0.88],
+["HD 129814","G5V",44.292,1.74,-12.886,42.34,5.57,4.92,0.77],
+["HD 136064","G1V",56.392,-14.389,-17.16,51.755,5.09,3.91,0.6],
+["HD 191408","K2.5V",19.54,3.136,-19.263,0.953,5.49,6.6,0.95],
+["Gliese 229","K1Ve",28.261,22.145,15.357,-8.513,5.08,6.47,0.879],
+["HD 22484","F8V",44.749,16.245,14.598,-39.057,4.28,3.14,0.575],
+["HD 4628","K2.5V",24.201,-0.865,-6.632,-23.258,5.74,6.74,0.895],
+["HD 160691","G3IV",49.902,18.993,-39.639,23.627,5.12,4.17,0.75],
+["HD 147513","G5V",41.976,9.445,-27.496,30.278,5.38,4.47,0.724],
+["HD 177565","G7V",34.899,15.005,-30.123,9.241,6.18,5.62,0.76],
+["HD 4614","F9V",19.4,-13.715,4.243,-13.048,3.46,4.61,0.577],
+["HD 39587","G0V",28.245,4.559,23.934,-14.288,4.39,4.7,0.594],
+["HD 102870","F9V",35.584,1.712,18.772,30.181,3.61,3.14,0.555],
+["HD 69830","G8V",40.965,25.019,31.436,8.0,5.95,5.44,0.754],
+["HD 141937","G2IV",48.956,-12.26,-21.454,42.262,6.1,5.21,0.638],
+["HD 19994","F8V",72.961,20.187,17.865,-67.799,5.07,3.32,0.575],
+["HD 45701","G0V",48.075,19.994,40.319,-16.906,5.93,4.78,0.604],
+["HD 4628b","K2.5V",24.201,-0.864,-6.63,-23.259,5.74,6.74,0.895],
+["HD 160691b","G3IV",49.902,18.99,-39.64,23.628,5.12,4.17,0.75],
+["HD 3651","K0V",36.236,-10.297,-5.794,-34.256,5.88,6.71,0.849],
+["HD 40307","K2.5V",42.482,42.413,-0.95,-2.226,7.17,6.57,0.94],
+["HD 20794","G6V",19.7,16.594,-2.422,-10.337,4.27,5.36,0.712],
+["HD 115617","G5V",27.919,4.605,1.471,27.497,4.74,5.07,0.709],
+["Eta Cassiopeiae B","M0V",19.4,-13.715,4.243,-13.048,7.51,8.66,1.47],
+["Struve 2398 B","M3Ve",11.526,-11.513,-0.299,-0.462,9.7,11.95,1.61],
+["DX Cancri","M6Ve",11.735,5.341,10.093,2.704,14.78,17.4,2.07],
+["HD 1237","G6V",57.338,48.82,-30.0,2.068,6.59,5.45,0.76],
+["HD 176051","G0V",46.575,-39.777,-23.874,4.13,5.21,4.0,0.62],
+["HD 222237","K3V",21.207,-0.934,-11.452,-17.824,7.06,7.66,1.09],
+["HD 155886","F9IV",37.965,-32.577,-11.536,15.715,2.81,2.65,0.645],
+["HD 84737","G0V",29.811,-18.842,23.052,1.511,4.86,5.06,0.59],
+["HD 99491","K0V",38.91,-15.911,28.843,20.71,5.64,5.24,0.82],
+["HD 148317","G9V",56.621,-40.96,-17.232,35.089,6.07,4.37,0.82],
+["HD 118972","G3V",46.608,-28.966,16.74,32.45,6.07,4.84,0.62],
+["HD 77407","G0V",36.693,-16.485,32.741,1.613,5.44,5.19,0.6],
+["HD 35296","F5V",46.575,3.676,36.407,-28.814,4.99,3.72,0.468],
+["HD 10476","K1V",24.393,-3.558,1.293,-24.098,5.24,6.47,0.835],
+["Gliese 849","M3.5V",28.61,-6.014,-23.367,-15.374,10.42,11.2,1.52],
+["Gliese 357","M2.5V",30.789,19.245,18.175,15.726,10.91,11.97,1.53],
+["Gliese 673","K7V",22.466,-11.819,-15.349,11.376,7.46,8.26,1.33],
+["HD 165341","K0V",16.585,-8.842,-12.328,6.702,4.03,5.51,0.86],
+["HR 753","K3V",24.034,-3.677,6.982,-22.702,5.81,6.95,0.98],
+["HD 26965","K1V",16.288,8.649,6.386,-12.236,4.43,5.92,0.827],
+["Van Maanen 2","DZ7",14.064,-0.455,-3.773,-13.541,12.38,14.2,0.0],
+["36 Ophiuchi C","K6V",19.55,-0.692,-15.164,12.319,6.33,7.58,1.15],
+["HD 131977","K4V",19.184,0.565,-6.43,18.066,5.72,6.81,1.12],
+["HD 6582","K0V",18.493,-12.528,4.631,-12.79,5.17,6.21,0.848]
+];
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+var $=id=>document.getElementById(id);
+function ss(m,p){$('lm').textContent=m;if(p!=null)$('lb').style.width=p+'%';}
+
+function specClass(s){
+  if(!s||!s.trim())return'X';
+  const c=s.trim()[0].toUpperCase();
+  if(c==='O'||c==='B')return'OB';if(c==='A')return'A';if(c==='F')return'F';
+  if(c==='G')return'G';if(c==='K')return'K';
+  if(c==='M'||c==='L'||c==='T'||c==='Y')return'M';
+  if(c==='D')return'D';return'X';
+}
+
+// Spectral glow colors — vivid enough to show on off-white background
+const SCOL={
+  OB: new THREE.Color(0x4488ff),  // bold blue
+  A:  new THREE.Color(0x88aaff),  // soft blue
+  F:  new THREE.Color(0x998866),  // warm beige
+  G:  new THREE.Color(0xcc8800),  // amber yellow
+  K:  new THREE.Color(0xcc5500),  // burnt orange
+  M:  new THREE.Color(0xbb1100),  // deep red
+  D:  new THREE.Color(0x4466aa),  // blue-gray
+  X:  new THREE.Color(0x228855),  // teal
+};
+
+// ── SCENE ─────────────────────────────────────────────────────────────────────
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.05,3000);
+camera.position.set(110,60,110);
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.setClearColor(0xf0ede6,1);  // warm off-white
+$('wrap').appendChild(renderer.domElement);
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+
+// ── ORBIT CONTROLS ────────────────────────────────────────────────────────────
+const cam={
+  sph:new THREE.Spherical(camera.position.length(),Math.acos(60/camera.position.length()),Math.PI/4),
+  target:new THREE.Vector3(),pan:new THREE.Vector3(),
+  drag:false,right:false,last:{x:0,y:0},spin:false,
+  update(){
+    if(this.spin)this.sph.theta+=.003;
+    this.sph.phi=Math.max(.05,Math.min(Math.PI-.05,this.sph.phi));
+    this.sph.radius=Math.max(2,Math.min(600,this.sph.radius));
+    camera.position.setFromSpherical(this.sph).add(this.target).add(this.pan);
+    camera.lookAt(new THREE.Vector3().addVectors(this.target,this.pan));
+  }
+};
+const cvs=renderer.domElement;
+cvs.addEventListener('contextmenu',e=>e.preventDefault());
+cvs.addEventListener('mousedown',e=>{cam.drag=true;cam.right=e.button===2;cam.last={x:e.clientX,y:e.clientY};});
+window.addEventListener('mouseup',()=>cam.drag=false);
+window.addEventListener('mousemove',e=>{
+  if(!cam.drag)return;
+  const dx=e.clientX-cam.last.x,dy=e.clientY-cam.last.y;
+  if(cam.right){
+    const sp=cam.sph.radius*.0012,r=new THREE.Vector3(),u=new THREE.Vector3(0,1,0);
+    r.crossVectors(camera.getWorldDirection(new THREE.Vector3()),u).normalize();
+    cam.pan.addScaledVector(r,-dx*sp).addScaledVector(u,dy*sp);
+  }else{cam.sph.theta-=dx*.005;cam.sph.phi-=dy*.005;}
+  cam.last={x:e.clientX,y:e.clientY};
+});
+cvs.addEventListener('wheel',e=>{e.preventDefault();cam.sph.radius*=1+e.deltaY*.001;},{passive:false});
+let ptd=0;
+cvs.addEventListener('touchstart',e=>{if(e.touches.length===1){cam.drag=true;cam.right=false;cam.last={x:e.touches[0].clientX,y:e.touches[0].clientY};}if(e.touches.length===2)ptd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);});
+cvs.addEventListener('touchmove',e=>{e.preventDefault();if(e.touches.length===1&&cam.drag){const dx=e.touches[0].clientX-cam.last.x,dy=e.touches[0].clientY-cam.last.y;cam.sph.theta-=dx*.005;cam.sph.phi-=dy*.005;cam.last={x:e.touches[0].clientX,y:e.touches[0].clientY};}if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);cam.sph.radius*=ptd/d;ptd=d;}},{passive:false});
+cvs.addEventListener('touchend',()=>cam.drag=false);
+
+// ── BACKGROUND HAZE (subtle dark stipple on light bg) ────────────────────────
+(()=>{
+  const n=5000,p=new Float32Array(n*3);
+  for(let i=0;i<n;i++){
+    const th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1),r=700+Math.random()*500;
+    p[i*3]=r*Math.sin(ph)*Math.cos(th);
+    p[i*3+1]=r*Math.sin(ph)*Math.sin(th)*.20;
+    p[i*3+2]=r*Math.cos(ph);
+  }
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(p,3));
+  // Dark stipple on light background
+  scene.add(new THREE.Points(g,new THREE.PointsMaterial({size:0.9,color:0x888880,transparent:true,opacity:.18,depthWrite:false})));
+})();
+
+// ── GALACTIC GRID ─────────────────────────────────────────────────────────────
+const gridGrp=new THREE.Group();scene.add(gridGrp);
+function buildGrid(){
+  while(gridGrp.children.length)gridGrp.remove(gridGrp.children[0]);
+  const rm=new THREE.LineBasicMaterial({color:0x9090a0,transparent:true,opacity:.35});
+  [30,60,90,120].forEach(r=>{
+    const pts=[];for(let i=0;i<=128;i++){const a=i/128*Math.PI*2;pts.push(new THREE.Vector3(Math.cos(a)*r,0,Math.sin(a)*r));}
+    gridGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),rm));
+  });
+  for(let i=0;i<12;i++){
+    const a=i/12*Math.PI*2;
+    gridGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(Math.cos(a)*120,0,Math.sin(a)*120)]),new THREE.LineBasicMaterial({color:0xc0c0b8,transparent:true,opacity:.3})));
+  }
+  gridGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-40,0),new THREE.Vector3(0,40,0)]),new THREE.LineBasicMaterial({color:0x8888aa,transparent:true,opacity:.4})));
+  gridGrp.add(new THREE.Mesh(new THREE.SphereGeometry(120,24,14),new THREE.MeshBasicMaterial({color:0xa0a0b0,wireframe:true,transparent:true,opacity:.04})));
+}
+buildGrid();
+
+// ── SOL MARKER ────────────────────────────────────────────────────────────────
+// On light bg: Sol is a vivid amber dot with a golden glow
+const solGeo=new THREE.SphereGeometry(1.2,12,12);
+const solMat=new THREE.MeshBasicMaterial({color:0xdd8800});
+const solMesh=new THREE.Mesh(solGeo,solMat);
+scene.add(solMesh);
+// Invisible hit-zone — 3× the visual radius so Sol is easy to click
+// at any zoom level. Invisible material (opacity 0, no depth write).
+const solHitZone=new THREE.Mesh(
+  new THREE.SphereGeometry(3.5,8,6),
+  new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false})
+);
+solMesh.add(solHitZone); // parented to solMesh so it moves with it
+
+// ── LABEL FACTORY ─────────────────────────────────────────────────────────────
+// Labels render at a fixed SCREEN-PIXEL size regardless of zoom.
+// The trick: canvas is drawn at 3× for crispness; scale is corrected
+// every frame in updateLabels() so the sprite covers exactly LABEL_PX_H
+// screen pixels in height at any camera distance.
+const LABEL_PX_H = 26;   // desired screen height in pixels (doubled from before)
+const LABEL_SCALE = 3;   // canvas oversample for sharpness
+
+// Background halo colour — exactly matches the canvas background (#f0ede6)
+const HALO_COLOR = 'rgba(240,237,230,0.92)';
+const HALO_WIDTH = 6;  // halo stroke width in canvas pixels (at 3× scale)
+
+function makeLabel(txt, hexCol){
+  const canvH = LABEL_PX_H * LABEL_SCALE;
+  const c = document.createElement('canvas');
+  const ctx = c.getContext('2d');
+  const fontSize = Math.round(canvH * 0.78);
+  ctx.font = `700 ${fontSize}px "Space Mono",monospace`;
+
+  // Measure with halo padding on each side
+  const textW = Math.ceil(ctx.measureText(txt).width) + HALO_WIDTH * 2 + 10;
+  c.width  = textW;
+  c.height = canvH;
+
+  // Re-apply font after canvas resize (resize clears canvas state)
+  ctx.font = `700 ${fontSize}px "Space Mono",monospace`;
+
+  const tx = HALO_WIDTH + 5;   // x start with halo padding
+  const ty = fontSize;          // baseline
+
+  // ① Halo pass — thick stroke in background colour, drawn first (behind text)
+  ctx.lineWidth   = HALO_WIDTH * 2;
+  ctx.lineJoin    = 'round';
+  ctx.strokeStyle = HALO_COLOR;
+  ctx.strokeText(txt, tx, ty);
+
+  // ② Ink pass — dark spectral-tinted fill on top
+  const ri = parseInt(hexCol.slice(1,3),16)/255;
+  const gi = parseInt(hexCol.slice(3,5),16)/255;
+  const bi = parseInt(hexCol.slice(5,7),16)/255;
+  const ir = Math.round(ri*0.30*255);
+  const ig = Math.round(gi*0.30*255);
+  const ib = Math.round(Math.min(bi*0.30+0.10,1)*255);
+  ctx.fillStyle = `rgb(${ir},${ig},${ib})`;
+  ctx.fillText(txt, tx, ty);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex, transparent:true, opacity:0.95,
+    depthWrite:false,
+    depthTest:false,   // always render on top — never clipped by globes
+    blending:THREE.NormalBlending,
+  }));
+  sp.renderOrder = 999; // paint after all opaque geometry
+  sp.userData.aspect = textW / canvH;
+  sp.scale.set(1,1,1);
+  return sp;
+}
+
+// Sol label — created here, positioned after solMesh
+const solLbl=makeLabel('Sol ☀','#cc7700');
+scene.add(solLbl);
+
+// ── STAR SHADERS ──────────────────────────────────────────────────────────────
+// CORE: tight, sharp dark disc. Fragment uses a steeper smoothstep so the
+// star looks like a focused point at any zoom, not a blurry blob.
+// GLOW: spectral ring that scales in SCREEN PIXELS (same vertex trick as core)
+// so it grows proportionally when you zoom in.
+//
+// Both use NormalBlending on the off-white background.
+
+const CORE_MAT = new THREE.ShaderMaterial({
+  vertexShader:`
+    attribute float size; attribute vec3 color; varying vec3 vC;
+    void main(){
+      vC=color;
+      vec4 mv=modelViewMatrix*vec4(position,1.);
+      gl_PointSize=size*(320./-mv.z);
+      gl_Position=projectionMatrix*mv;
+    }
+  `,
+  fragmentShader:`
+    varying vec3 vC;
+    void main(){
+      float d=length(gl_PointCoord-vec2(.5))*2.;
+      if(d>1.)discard;
+      // Sharp airy-disc profile: near-solid core, crisp edge falloff
+      float a=smoothstep(1.,.6,d)*.96;
+      // Almost pure black core, very faint spectral tint only at rim
+      vec3 col=mix(vec3(.03,.03,.05),vC*.15,smoothstep(.5,.95,d));
+      gl_FragColor=vec4(col,a);
+    }
+  `,
+  transparent:true,depthWrite:false,blending:THREE.NormalBlending,
+});
+
+const GLOW_MAT = new THREE.ShaderMaterial({
+  uniforms:{ glowScale:{value:1.0} },
+  vertexShader:`
+    attribute float size; attribute vec3 color; varying vec3 vC;
+    uniform float glowScale;
+    void main(){
+      vC=color;
+      vec4 mv=modelViewMatrix*vec4(position,1.);
+      // Glow screen size = core screen size × glowScale (updated per frame)
+      gl_PointSize=size*(320./-mv.z)*glowScale;
+      gl_Position=projectionMatrix*mv;
+    }
+  `,
+  fragmentShader:`
+    varying vec3 vC;
+    void main(){
+      float d=length(gl_PointCoord-vec2(.5))*2.;
+      if(d>1.)discard;
+      // Soft bloom ring around core — peaks mid-radius, zero at centre & edge
+      float bloom=smoothstep(0.,.20,d)*smoothstep(1.,.30,d);
+      float a=bloom*.42;
+      gl_FragColor=vec4(vC,a);
+    }
+  `,
+  transparent:true,depthWrite:false,blending:THREE.NormalBlending,
+});
+
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let allStars=[],rendered=[];
+let cPts=null,gPts=null;
+let lbls=[];   // [{sprite, x, y, z}]
+let showGlow=true;
+let dMax=120,mMax=15,showL=true;
+const sv={OB:true,A:true,F:true,G:true,K:true,M:false,D:true,X:true};
+
+// Exoplanet host index: Map of star name → planet count (populated after catalog load)
+let exoHosts   = new Map(); // hip/hd/name → {count, hostName for URL}
+let multiStarGroups = new Map(); // hip → [{star}, ...] — systems with 2+ main-seq members
+let connLines  = [];        // Three.js Line objects for faction connections
+let showConnLines = false;  // toggled by menu
+let connEraFilter = 0;      // 0 = all eras
+let exoCsvText = '';        // raw CSV text — cached for WB panel use
+let wbPlanetHips = new Set(); // HIP numbers of stars with user-created planets
+
+// Load user-planet HIPs from WB API and rebuild stars to apply blue rings
+async function loadWbPlanetHips(){
+  try{
+    const r = await fetch('/api/world/stars/with_planets');
+    if(!r.ok) return;
+    const ct = r.headers.get('content-type')||'';
+    if(!ct.includes('json')) return;
+    const hips = await r.json();
+    if(!hips.length) return;
+    wbPlanetHips = new Set(hips.map(String));
+    // Rebuild star scene so blue rings appear
+    if(allStars.length) buildStars(allStars);
+  }catch(e){ /* API not running — skip silently */ }
+}
+
+// Named stars for labels — covers HYG colloquial names, IAU official names,
+// and AT-HYG Bayer-Flamsteed bf variants
+const LNAMES=new Set([
+  // ── IAU official proper names (used by AT-HYG live catalog) ──
+  'Sol','Sirius','Vega','Altair','Fomalhaut','Procyon','Arcturus','Pollux',
+  'Castor','Capella','Aldebaran','Regulus','Achernar','Deneb','Canopus',
+  'Betelgeuse','Antares','Rigel','Spica','Mimosa','Acrux','Gacrux','Hadar',
+  // Alpha Centauri system — official IAU names
+  'Rigil Kentaurus',  // Alpha Centauri A
+  'Toliman',          // Alpha Centauri B
+  'Proxima Centauri',
+  // Nearby stars — official IAU names
+  "Barnard's Star",
+  'Ran',              // Epsilon Eridani (official IAU since 2015)
+  'Tabit',            // Pi3 Orionis
+  'Alsafi',           // Sigma Draconis
+  'Muscida',          // Pi UMa
+  // ── Colloquial / HYG names (used by embedded catalog) ──
+  'Alpha Centauri A','Alpha Centauri B',
+  'Epsilon Eridani','Tau Ceti','Epsilon Indi','61 Cygni A','61 Cygni B',
+  '70 Ophiuchi A','Ross 128','Delta Pavonis','Eta Cassiopeiae A',
+  'Groombridge 1618','82 Eridani','Lalande 21185','Pi3 Orionis',
+  'Zeta Herculis A','Sigma Draconis','40 Eridani A','Mu Cassiopeiae A',
+  '55 Cancri A','Chi1 Orionis','Upsilon Andromedae','Beta Virginis',
+  'Groombridge 1830','61 Virginis','18 Scorpii','Lambda Serpentis',
+  'Rho Coronae Borealis','Delta Eridani',"Van Maanen's Star",
+  'Gliese 667 A','Gliese 570 A','Wolf 359',
+  // ── AT-HYG bf designation variants (lowercase) ──
+  'alf cma','alf lyr','alf aql','alf psa','alf boo','alf gem','alf tau',
+  'alf leo','alf eri','alf car','bet gem','alf cmi',
+  'alf01cen','alf02cen','alf cen a','alf cen b','prox cen',
+  'eps eri','tau cet','eps ind','61 cyg','61 cyg a','61 cyg b',
+  '70 oph','ros 128','del pav','eta cas',
+]);
+
+// ── MULTI-STAR SYSTEM GROUPING ────────────────────────────────────────────────
+// Groups stars within 0.03 pc (~6000 AU) of each other into systems.
+// Excludes white dwarfs (D*), brown dwarfs (L/T/Y), and companions > 10,000 AU.
+// Populates multiStarGroups: Map<hip → {primary, rendered:[], excluded:[]}>
+function buildMultiStarGroups(stars){
+  multiStarGroups.clear();
+
+  const MAX_DIST_SPREAD = 0.05; // pc sanity check
+  const MAX_AU          = 10000;
+  const AU_PER_PC       = 206265;
+
+  // Supplement: known binary HIP pairs whose companions have no gl/base entry
+  const HIP_SUPPLEMENT = [
+    ['116727','117094'], // Gamma Cephei A+B   (planet around A)
+    ['10138', '10161'],  // Gliese 86 A + WD B (planet around A)
+    ['43587', '43711'],  // 55 Cancri A+B      (5 planets around A)
+  ];
+
+  // Strip trailing component letter(s) from Gliese number
+  // "Gl 559A" → "Gl 559",  "GJ 15A" → "GJ 15"
+  function glRoot(gl){
+    if(!gl||gl.trim()==='') return '';
+    return gl.trim().replace(/\s*[A-Z]+$/i,'').trim();
+  }
+
+  function isExcluded(spect){
+    const s=(spect||'').trim().toUpperCase();
+    if(s.startsWith('D')) return 'White dwarf';
+    if(s.startsWith('L')||s.startsWith('T')||s.startsWith('Y')) return 'Brown dwarf';
+    return null;
+  }
+
+  // ── Group by base column (HYG v4.2), fall back to gl root (AT-HYG) ─────────
+  const byKey = new Map();
+  stars.forEach(s=>{
+    // Prefer base column; fall back to gl root
+    const key = (s._base && s._base!=='') ? s._base : glRoot(s.gl);
+    if(!key) return;
+    if(!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(s);
+  });
+
+  // ── Add supplement pairs to byKey ────────────────────────────────────────
+  const byHip = new Map();
+  stars.forEach(s=>{ if(s.hip) byHip.set(s.hip, s); });
+
+  HIP_SUPPLEMENT.forEach(([hipA, hipB])=>{
+    const a = byHip.get(hipA), b = byHip.get(hipB);
+    if(!a) return; // primary not in catalog — nothing to do
+    if(b){
+      // Both stars present — add to byKey for normal processing
+      const key = 'SUPP:'+hipA+'+'+hipB;
+      if(!byKey.has(key)) byKey.set(key, []);
+      const grp = byKey.get(key);
+      if(!grp.find(s=>s===a)) grp.push(a);
+      if(!grp.find(s=>s===b)) grp.push(b);
+    } else {
+      // Companion filtered out (bad dist / beyond 120 ly) — create minimal entry
+      // so the primary still gets a ⬡ Star System button with an exclusion note
+      if(!multiStarGroups.has(hipA)){
+        const entry={
+          primary:a,
+          rendered:[a],
+          excluded:[{star:{name:'Companion (HIP '+hipB+')',spect:'?'},
+            reason:'Catalog distance unreliable — not loaded'}]
+        };
+        multiStarGroups.set(hipA, entry);
+      }
+    }
+  });
+
+  // ── Process each group ────────────────────────────────────────────────────
+  byKey.forEach((members, key)=>{
+    if(members.length < 2) return;
+
+    // Sanity: all members within 0.05 pc of each other
+    // Skip for supplement pairs — wider binaries have real parallax differences
+    if(!key.startsWith('SUPP:')){
+      const dists = members.map(s=>s._distpc).filter(d=>d>0);
+      if(dists.length >= 2){
+        if(Math.max(...dists)-Math.min(...dists) > MAX_DIST_SPREAD) return;
+      }
+    }
+
+    // Sort by brightness — lowest absmag = primary
+    members.sort((a,b)=>(isFinite(a.absmag)?a.absmag:99)-(isFinite(b.absmag)?b.absmag:99));
+    const primary = members[0];
+    if(!primary.hip) return;
+
+    const rendered = [];
+    const excluded = [];
+
+    members.forEach(s=>{
+      const excReason = isExcluded(s.spect);
+      // Separation from primary in AU
+      let sepAU = 0;
+      if(s._rawX!==undefined && primary._rawX!==undefined &&
+         (s._rawX!==0||s._rawY!==0||s._rawZ!==0)){
+        const dx=s._rawX-primary._rawX,dy=s._rawY-primary._rawY,dz=s._rawZ-primary._rawZ;
+        sepAU = Math.sqrt(dx*dx+dy*dy+dz*dz)*AU_PER_PC;
+      } else if(s._distpc>0 && primary._distpc>0){
+        sepAU = Math.abs(s._distpc-primary._distpc)*AU_PER_PC;
+      }
+
+      if(excReason){
+        excluded.push({star:s, reason:excReason});
+      } else if(sepAU>MAX_AU && sepAU>0){
+        excluded.push({star:s,
+          reason:Math.round(sepAU).toLocaleString()+' AU — gravitationally marginal'});
+      } else {
+        rendered.push(s);
+      }
+    });
+
+    // Store if 2+ rendered OR 1 rendered + 1+ excluded (e.g. Sirius A + WD B)
+    if(rendered.length>=1 && (rendered.length>=2 || excluded.length>=1)){
+      const entry={primary:rendered[0]||primary, rendered, excluded};
+      rendered.forEach(s=>{ if(s.hip) multiStarGroups.set(s.hip, entry); });
+      if(primary.hip && !multiStarGroups.has(primary.hip)){
+        multiStarGroups.set(primary.hip, entry);
+      }
+    }
+  });
+
+  const sysCount = new Set([...multiStarGroups.values()]).size;
+  console.info('[multi-star] '+sysCount+' systems, '+multiStarGroups.size+' HIP entries');
+}
+
+function buildStars(stars){
+  if(cPts){scene.remove(cPts);cPts.geometry.dispose();}
+  if(gPts){scene.remove(gPts);gPts.geometry.dispose();}
+  lbls.forEach(l=>scene.remove(l.sprite));lbls=[];
+
+  const fil=stars.filter(s=>{
+    if(s.dist_ly>dMax)return false;
+    if(!isNaN(s.mag)&&s.mag>mMax)return false;
+    if(!sv[s.sc])return false;
+    // M dwarfs are off by default (sv.M===false catches that above).
+    // When the user explicitly enables M, show all of them — no distance cap.
+    return true;
+  });
+
+  const n=fil.length;
+  const cP=new Float32Array(n*3),cC=new Float32Array(n*3),cS=new Float32Array(n);
+  const gP=new Float32Array(n*3),gC=new Float32Array(n*3),gS=new Float32Array(n);
+
+  fil.forEach((s,i)=>{
+    cP[i*3]=s.x;cP[i*3+1]=s.y;cP[i*3+2]=s.z;
+    gP[i*3]=s.x;gP[i*3+1]=s.y;gP[i*3+2]=s.z;
+    const col=SCOL[s.sc];
+    cC[i*3]=col.r;cC[i*3+1]=col.g;cC[i*3+2]=col.b;
+    gC[i*3]=col.r;gC[i*3+1]=col.g;gC[i*3+2]=col.b;
+    const ab=isNaN(s.absmag)?5:s.absmag;
+    // Core: smaller dot — size by absolute magnitude
+    const sz=Math.max(1.0,Math.min(6.0,4.2-ab*.15));
+    cS[i]=sz;
+    // Glow size is same base — the vertex shader scales it 4.4x more
+    gS[i]=sz;
+
+    // Labels — will be distance-culled every frame in animate()
+    // Show label if: known name OR bf matches a known star OR bright (mag<2.5) within 60 ly
+    const nm  = s.name  || '';
+    const bfn = (s.bf   || '').trim().toLowerCase();
+    // Quick exoplanet lookup for label decision (full lookup done again below for ring)
+    const hasExo = !!(
+      (s.hip && exoHosts.get(s.hip)) ||
+      (s.hd  && exoHosts.get('HD'+s.hd)) ||
+      (nm   && !/ [ABC]$/.test(nm)   ? exoHosts.get(nm)   : null) ||
+      (s.proper && !/ [ABC]$/.test(s.proper) ? exoHosts.get(s.proper) : null)
+    );
+    const wantLabel = showL && (
+      LNAMES.has(nm) ||
+      LNAMES.has(bfn) ||
+      (s.mag < 2.5 && s.dist_ly < 60) ||
+      (s.dist_ly > 0 && s.dist_ly < 5) ||  // everything within 5 ly always labelled
+      hasExo ||                              // NASA exoplanet host stars
+      !!(s.hip && multiStarGroups.get(s.hip)) // multi-star system members
+    );
+    if(wantLabel){
+      // Prefer proper name, then bf, then best catalog ID
+      const ids = bestDesig(s);
+      const labelText = nm || bfn || (ids.length ? ids[0] : '?');
+      const hexCol='#'+col.getHexString();
+      const lbl=makeLabel(labelText, hexCol);
+      // Initial position at the star — updateLabels() offsets it every frame
+      lbl.position.set(s.x, s.y, s.z);
+      lbl.visible=false;
+      scene.add(lbl);
+      lbls.push({sprite:lbl, x:s.x, y:s.y, z:s.z});
+    }
+
+    // Planet indicator ring — green = NASA confirmed, blue = user-created only
+    // Look up by HIP number first (most reliable), then HD, then name.
+    // For name fallback: only match if the star name exactly equals the NASA
+    // hostname — don't match if our name has a component suffix (A/B/C) that
+    // the NASA name lacks (avoids binary-component bleed e.g. Struve 2398 B
+    // matching a planet catalogued under "Struve 2398 A").
+    const nmExact = nm && !/ [ABC]$/.test(nm) ? exoHosts.get(nm) : null;
+    const properExact = s.proper && !/ [ABC]$/.test(s.proper) ? exoHosts.get(s.proper||'') : null;
+    const exoEntry = (s.hip && exoHosts.get(s.hip))
+                  || (s.hd  && exoHosts.get('HD'+s.hd))
+                  || nmExact
+                  || properExact;
+    const hasUserPlanets  = s.hip && wbPlanetHips.has(String(s.hip));
+    const hasNASAPlanets  = !!exoEntry;
+    const hasMultiStar    = !!(s.hip && multiStarGroups.get(s.hip));
+
+    // ── Ring color priority ──────────────────────────────────────────────────
+    // Planets take priority over multi-star indicator.
+    // NASA + user → Green   (richest data)
+    // NASA only   → Blue    (verified catalog data)
+    // User only   → Purple  (worldbuilding)
+    // Multi-star  → Amber   (no planets, but binary/triple system)
+    let ringColor = null;
+    if(hasNASAPlanets && hasUserPlanets) ringColor = 0x00dd88; // green
+    else if(hasNASAPlanets)             ringColor = 0x1188ff; // bold blue
+    else if(hasUserPlanets)             ringColor = 0xaa66ff; // purple
+    else if(hasMultiStar)               ringColor = 0xffaa00; // amber
+
+    if(ringColor !== null){
+      const ringGeo = new THREE.RingGeometry(sz*0.018+0.18, sz*0.018+0.26, 18);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color:ringColor, transparent:true, opacity:0.75,
+        side:THREE.DoubleSide, depthTest:false, depthWrite:false
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.renderOrder = 998;
+      ring.position.set(s.x, s.y, s.z);
+      ring.userData.isPlanetRing = true;
+      ring.userData.starHip = s.hip ? String(s.hip) : null;
+      scene.add(ring);
+      lbls.push({sprite:ring, x:s.x, y:s.y, z:s.z, isRing:true});
+    }
+  });
+
+  function mkG(p,c,sz){
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.BufferAttribute(p,3));
+    g.setAttribute('color',   new THREE.BufferAttribute(c,3));
+    g.setAttribute('size',    new THREE.BufferAttribute(sz,1));
+    return g;
+  }
+
+  // Clone materials so we can update them independently
+  cPts=new THREE.Points(mkG(cP,cC,cS), CORE_MAT.clone());
+  scene.add(cPts);
+
+  gPts=new THREE.Points(mkG(gP,gC,gS), GLOW_MAT.clone());
+  gPts.visible=showGlow;
+  scene.add(gPts);
+
+  rendered=fil;
+  $('cn').textContent=n.toLocaleString();
+}
+
+// ── LABEL UPDATE (per-frame) ───────────────────────────────────────────────────
+// Called every frame. Each label is:
+//   1. Shown only when the camera is within 20 ly of the star
+//   2. Scaled so it always occupies LABEL_PX_H pixels on screen
+//   3. Offset a fixed number of SCREEN pixels to the right of the star
+const LABEL_VIS_DIST_SQ = 35*35;
+const LABEL_OFFSET_PX   = 10;  // pixels right of the star dot
+
+// Reusable vectors to avoid per-frame allocation
+const _starNDC   = new THREE.Vector3();
+const _offsetNDC = new THREE.Vector3();
+
+function updateLabels(){
+  if(!showL){lbls.forEach(l=>l.sprite.visible=false);return;}
+
+  const cx=camera.position.x,cy=camera.position.y,cz=camera.position.z;
+  const W=renderer.domElement.clientWidth  || innerWidth;
+  const H=renderer.domElement.clientHeight || innerHeight;
+
+  lbls.forEach(l=>{
+    // Planet indicator rings — always visible, just face the camera
+    if(l.isRing){
+      l.sprite.quaternion.copy(camera.quaternion);
+      l.sprite.visible = true;
+      return;
+    }
+
+    const dx=cx-l.x,dy=cy-l.y,dz=cz-l.z;
+    const dist2=dx*dx+dy*dy+dz*dz;
+    if(dist2>=LABEL_VIS_DIST_SQ){l.sprite.visible=false;return;}
+    l.sprite.visible=true;
+
+    // --- Screen-space size ---
+    // Project the star's world position to NDC, find how many world units
+    // correspond to LABEL_PX_H pixels at this depth, set scale accordingly.
+    _starNDC.set(l.x,l.y,l.z).project(camera);
+    const depth = _starNDC.z;  // NDC depth of the star
+
+    // Convert LABEL_PX_H pixels → world units at this depth
+    // NDC y range is 2.0 for H pixels, so 1 pixel = 2/H in NDC
+    // Un-project to world: use the camera's projection inverse
+    const ndcPxH = (LABEL_PX_H / H) * 2.0;
+    _offsetNDC.set(_starNDC.x, _starNDC.y + ndcPxH, depth);
+    _offsetNDC.unproject(camera);
+    const worldH = _offsetNDC.distanceTo(new THREE.Vector3(l.x,l.y,l.z));
+
+    const asp = l.sprite.userData.aspect || 5;
+    l.sprite.scale.set(worldH * asp, worldH, 1);
+
+    // --- Screen-space offset (fixed pixel distance to the right) ---
+    const ndcOffX = (LABEL_OFFSET_PX / W) * 2.0;
+    _offsetNDC.set(_starNDC.x + ndcOffX, _starNDC.y, depth);
+    _offsetNDC.unproject(camera);
+    // Move label to offset world position, nudge slightly above
+    l.sprite.position.set(
+      _offsetNDC.x + worldH * asp * 0.5,  // sprite origin is centre, shift right by half-width
+      _offsetNDC.y + worldH * 0.5,         // slight upward nudge (half label height)
+      _offsetNDC.z
+    );
+  });
+}
+
+// ── PICKING ───────────────────────────────────────────────────────────────────
+// Permanent Sol star object — returned by pick() when solMesh is clicked.
+// Lives outside allStars so it survives catalog swaps.
+const SOL_STAR = {
+  name:'Sol', proper:'Sol', spect:'G2V', dist_ly:0,
+  x:0, y:0, z:0, mag:-26.74, absmag:4.85, ci:0.656, lum:1.0,
+  sc:'G', hip:'', hd:'', hr:'', gl:'', bf:'',
+  altNames:[], sc:'G',
+};
+
+const ray=new THREE.Raycaster();
+const mv=new THREE.Vector2();
+function pick(mx,my){
+  // Scale threshold with camera distance so hit zone matches visual star size.
+  // At r=12 (typical close view) threshold≈0.5; at r=120 threshold≈1.6.
+  // Stars rendered with Points use screen-pixel size independent of distance,
+  // so a smaller world-space threshold at close range prevents clicking the
+  // wrong star in a dense cluster.
+  ray.params.Points.threshold = Math.max(0.4, cam.sph.radius * 0.013);
+  mv.set((mx/innerWidth)*2-1,-(my/innerHeight)*2+1);
+  ray.setFromCamera(mv,camera);
+  // Check Sol mesh first — recursive:true catches the invisible hit-zone child
+  const solHit=ray.intersectObject(solMesh,true);
+  if(solHit.length) return SOL_STAR;
+  // Then check the star point cloud
+  if(!cPts)return null;
+  const h=ray.intersectObject(cPts);
+  if(!h.length)return null;
+  const star=rendered[h[0].index];
+  // If the points cloud somehow contains Sol (dist=0), return SOL_STAR for
+  // consistent detail panel behaviour
+  if(star && star.dist_ly===0) return SOL_STAR;
+  return star||null;
+}
+
+const tp=$('tp');
+cvs.addEventListener('mousemove',e=>{
+  if(cam.drag){tp.style.display='none';return;}
+  const s=pick(e.clientX,e.clientY);
+  if(s){
+    tp.style.display='block';
+    tp.style.left=(e.clientX+16)+'px';tp.style.top=(e.clientY-12)+'px';
+    $('tn').textContent = s.name || (bestDesig(s)[0]) || 'Unknown';
+    $('tb').innerHTML=`Distance: <b>${s.dist_ly.toFixed(2)} ly</b><br>Spectral: <b>${s.spect||'—'}</b><br>Mag: <b>${isNaN(s.mag)?'—':s.mag.toFixed(2)}</b>`;
+    cvs.style.cursor='pointer';
+  }else{tp.style.display='none';cvs.style.cursor='default';}
+});
+cvs.addEventListener('click',e=>{const s=pick(e.clientX,e.clientY);if(s)openD(s);});
+cvs.addEventListener('dblclick',e=>{
+  const s=pick(e.clientX,e.clientY);if(!s)return;
+  cam.target.set(s.x,s.y,s.z);cam.pan.set(0,0,0);cam.sph.radius=12;
+  openD(s);
+});
+
+// Build the best available alphanumeric designation for display
+function bestDesig(s){
+  const ids=[];
+  if(s.hip)  ids.push('HIP '+s.hip);
+  if(s.hd)   ids.push('HD ' +s.hd);
+  if(s.hr)   ids.push('HR ' +s.hr);
+  if(s.gl)   ids.push('GJ ' +s.gl.replace(/^(gl|gj|gliese)\s*/i,''));
+  if(s.bf && !ids.length) ids.push(s.bf);
+  return ids;
+}
+
+function openD(s){
+  $('dp').style.display='block';
+  window._wbSetStar && window._wbSetStar(s); // stash for worldbuilding panel
+
+  // Headline name
+  const headline = s.name || s.proper || s.bf || (s.hip?'HIP '+s.hip:'Unknown Star');
+  $('dn').textContent=headline;
+
+  // Also Known As — build a fresh list, never mutate s.altNames
+  const akaList = s.altNames ? [...s.altNames] : [];
+  // Append bf if it differs from the headline and isn't already listed
+  if(s.bf && s.bf !== headline && !akaList.includes(s.bf)) akaList.push(s.bf);
+  if(akaList.length){
+    $('daka').textContent = akaList.join('  /  ');
+    $('dr-aka').style.display='';
+  } else {
+    $('dr-aka').style.display='none';
+  }
+
+  // Catalog IDs
+  const ids = bestDesig(s);
+  $('dids').textContent = ids.length ? ids.join('  ·  ') : '—';
+
+  // ── Wikipedia link ──────────────────────────────────────────────────────────
+  // Priority: proper/colloquial name → IAU name → HD number → HIP number
+  // Wikipedia article titles for stars follow predictable patterns.
+  const wikiLink = $('dwiki');
+  const drWiki   = $('dr-wiki');
+
+  // Stars whose Wikipedia article title differs from their common name
+  // (usually because the article uses a more specific or disambiguated title)
+  const WIKI_OVERRIDES = {
+    'Sol':                 'Sun',
+    'Alpha Centauri A':    'Alpha_Centauri',
+    'Alpha Centauri B':    'Alpha_Centauri',
+    'Rigil Kentaurus':     'Alpha_Centauri',
+    'Toliman':             'Alpha_Centauri',
+    'Proxima Centauri':    'Proxima_Centauri',
+    'Epsilon Eridani':     'Epsilon_Eridani',
+    'Ran':                 'Epsilon_Eridani',
+    "Barnard's Star":      'Barnard%27s_Star',
+    'Wolf 359':            'Wolf_359',
+    'Tau Ceti':            'Tau_Ceti',
+    'Epsilon Indi':        'Epsilon_Indi',
+    '61 Cygni A':          '61_Cygni',
+    '61 Cygni B':          '61_Cygni',
+    'Sigma Draconis':      'Sigma_Draconis',
+    'Alsafi':              'Sigma_Draconis',
+    'Delta Pavonis':       'Delta_Pavonis',
+    'Pi3 Orionis':         'Pi3_Orionis',
+    'Tabit':               'Pi3_Orionis',
+    '82 Eridani':          '82_Eridani',
+    'Lalande 21185':       'Lalande_21185',
+    'Groombridge 34 A':    'Groombridge_34',
+    "Van Maanen's Star":   'Van_Maanen%27s_star',
+    'Eta Cassiopeiae A':   'Eta_Cassiopeiae',
+    '40 Eridani A':        '40_Eridani',
+    'Delta Eridani':       'Delta_Eridani',
+    'Beta Virginis':       'Beta_Virginis',
+    'Groombridge 1618':    'Groombridge_1618',
+    'Groombridge 1830':    'Groombridge_1830',
+    'Gliese 667 A':        'Gliese_667',
+    'Gliese 570 A':        'Gliese_570',
+    '70 Ophiuchi A':       '70_Ophiuchi',
+    'Kapteyn\'s Star':     'Kapteyn%27s_Star',
+    'Mu Cassiopeiae A':    'Mu_Cassiopeiae',
+    '55 Cancri A':         '55_Cancri',
+    'Upsilon Andromedae':  'Upsilon_Andromedae',
+    'Rho Coronae Borealis':'Rho_Coronae_Borealis',
+    'Lambda Serpentis':    'Lambda_Serpentis',
+    '18 Scorpii':          '18_Scorpii',
+    'Ross 128':            'Ross_128',
+    'Luyten\'s Star':      'Luyten%27s_Star',
+  };
+
+  function buildWikiURL(star){
+    const BASE = 'https://en.wikipedia.org/wiki/';
+
+    // Helper: is this string a usable name (not blank/quotes/bf codes)?
+    function validName(n){
+      if(!n || n.length === 0) return false;
+      // Reject if it contains quote characters (CSV artifact like "" or "name")
+      if(n.includes('"')) return false;
+      // Reject pure punctuation / whitespace
+      if(/^[\s\W]+$/.test(n)) return false;
+      // Reject Bayer-Flamsteed codes: all-lowercase run like "alf01Cen", "alf CMa"
+      // Real proper names always start with an uppercase letter
+      if(/^[a-z]/.test(n)) return false;
+      return true;
+    }
+
+    // 1. Check override table using display name or any known alias
+    const namesToCheck = [star.name, star.proper, ...(star.altNames||[])];
+    for(const n of namesToCheck){
+      if(n && WIKI_OVERRIDES[n]) return BASE + WIKI_OVERRIDES[n];
+    }
+
+    // 2. Build from display name if it looks like a real proper name
+    if(validName(star.name) && !star.name.startsWith('HIP ')){
+      const slug = star.name.trim().replace(/\s+/g,'_').replace(/'/g,'%27');
+      return BASE + slug;
+    }
+
+    // 3. HD number — most catalog stars have a Wikipedia stub
+    if(star.hd && /^\d+$/.test(star.hd.trim())) return BASE + 'HD_' + star.hd.trim();
+
+    // 4. HIP number — fewer articles but some exist
+    if(star.hip && /^\d+$/.test(star.hip.trim())) return BASE + 'HIP_' + star.hip.trim();
+
+    return null;
+  }
+
+  const wikiURL = buildWikiURL(s);
+  if(wikiURL){
+    wikiLink.href = wikiURL;
+    wikiLink.title = 'Open Wikipedia article in new tab';
+    drWiki.style.display = '';
+  } else {
+    drWiki.style.display = 'none';
+  }
+
+  // Solar system button — only for Sol
+  const isSol = s.dist_ly === 0 || (s.name && s.name.toLowerCase() === 'sol');
+  $('dr-solar').style.display = isSol ? '' : 'none';
+
+  // Multi-star system button
+  const sysGroup = s.hip ? multiStarGroups.get(s.hip) : null;
+  if(sysGroup && !isSol){
+    $('dr-stellar').style.display = '';
+    $('btn-stellar').onclick = ()=>{
+      const base = window.location.href.replace(/\/[^\/]*$/,'/');
+      const p = new URLSearchParams();
+      sysGroup.rendered.forEach((m,i)=>{
+        p.set('s'+(i+1)+'_hip',   m.hip||'');
+        p.set('s'+(i+1)+'_name',  m.name||'');
+        p.set('s'+(i+1)+'_spect', m.spect||'');
+        p.set('s'+(i+1)+'_absmag',isFinite(m.absmag)?m.absmag:'');
+        p.set('s'+(i+1)+'_dist',  m.dist_ly||0);
+        // Pass equatorial coords (pc) if available, else scene coords (LY) with flag
+        if(m._rawX!==undefined){
+          p.set('s'+(i+1)+'_x', m._rawX);
+          p.set('s'+(i+1)+'_y', m._rawY);
+          p.set('s'+(i+1)+'_z', m._rawZ);
+          p.set('s'+(i+1)+'_ctype', 'pc');
+        } else {
+          p.set('s'+(i+1)+'_x', m.x);
+          p.set('s'+(i+1)+'_y', m.y);
+          p.set('s'+(i+1)+'_z', m.z);
+          p.set('s'+(i+1)+'_ctype', 'ly');
+        }
+        // Flag if this star has exoplanets
+        const hasExo = !!(exoHosts.get(m.hip)||exoHosts.get('HD'+m.hd)||wbPlanetHips.has(String(m.hip)));
+        p.set('s'+(i+1)+'_exo',   hasExo?'1':'0');
+      });
+      // Excluded members
+      if(sysGroup.excluded.length){
+        const excStr = sysGroup.excluded.map(e=>
+          encodeURIComponent(e.star.name||'Unknown')+':'+
+          encodeURIComponent(e.star.spect||'?')+':'+
+          encodeURIComponent(e.reason)
+        ).join('|');
+        p.set('excluded', excStr);
+      }
+      p.set('count', sysGroup.rendered.length);
+      window.open(base+'stellar-system.html?'+p.toString(),'_blank','noopener');
+    };
+  } else {
+    $('dr-stellar').style.display = 'none';
+  }
+
+  // Exoplanet system button — look up by HIP number, then HD number, then name.
+  // Guard against binary component bleed: only use name fallback if name has no A/B/C suffix.
+  const exoEntry = (s.hip  && exoHosts.get(s.hip))
+                || (s.hd   && exoHosts.get('HD'+s.hd))
+                || (s.name   && !/ [ABC]$/.test(s.name)   ? exoHosts.get(s.name)   : null)
+                || (s.proper && !/ [ABC]$/.test(s.proper) ? exoHosts.get(s.proper) : null);
+  if(exoEntry && !isSol){
+    $('btn-exo').textContent = `⬡ ${s.name} System`;
+    $('btn-exo').dataset.host   = exoEntry.hostName;
+    $('btn-exo').dataset.hip    = s.hip    || '';
+    $('btn-exo').dataset.hd     = s.hd     || '';
+    $('btn-exo').dataset.spect  = s.spect  || '';
+    $('btn-exo').dataset.lum    = s.lum    || '';
+    $('btn-exo').dataset.absmag = s.absmag || '';
+    $('dr-exo').style.display = '';
+  } else if(s.hip && !isSol){
+    // No NASA planets — check if user has added planets via worldbuilding
+    $('dr-exo').style.display = 'none';
+    fetch('/api/world/allplanets/'+s.hip)
+      .then(r=>{ const ct=r.headers.get('content-type')||''; return ct.includes('json')?r.json():null; })
+      .then(planets=>{
+        if(planets && planets.length){
+          $('btn-exo').textContent = `⬡ ${s.name} System`;
+          $('btn-exo').dataset.host   = s.name;
+          $('btn-exo').dataset.hip    = s.hip    || '';
+          $('btn-exo').dataset.hd     = s.hd     || '';
+          $('btn-exo').dataset.spect  = s.spect  || '';
+          $('btn-exo').dataset.lum    = s.lum    || '';
+          $('btn-exo').dataset.absmag = s.absmag || '';
+          $('dr-exo').style.display = '';
+        }
+      })
+      .catch(()=>{});
+  } else {
+    $('dr-exo').style.display = 'none';
+  }
+
+  $('dd').textContent=`${s.dist_ly.toFixed(3)} ly / ${(s.dist_ly/3.26156).toFixed(3)} pc`;
+  $('dsp').textContent=s.spect||'—';
+  $('dm2').textContent=isNaN(s.mag)?'—':s.mag.toFixed(2);
+  $('da').textContent=isNaN(s.absmag)?'—':s.absmag.toFixed(2);
+  $('dci').textContent=isNaN(s.ci)?'—':s.ci.toFixed(3);
+  $('dxy').textContent=`${s.x.toFixed(1)}, ${s.y.toFixed(1)}, ${s.z.toFixed(1)}`;
+}
+$('cs').addEventListener('click',()=>{$('dp').style.display='none';cam.target.set(0,0,0);cam.pan.set(0,0,0);});
+
+// Solar system button — opens solar-system.html in a new tab
+$('btn-solar').addEventListener('click',()=>{
+  // Resolve path relative to current page so it works both locally and on Pi nginx
+  const base = window.location.href.replace(/\/[^\/]*$/, '/');
+  window.open(base + 'solar-system.html', '_blank', 'noopener');
+});
+
+// Exoplanet system button — pass HIP, HD, and NASA hostname for robust matching
+$('btn-exo').addEventListener('click',()=>{
+  const exoEntry = $('btn-exo').dataset;
+  const base = window.location.href.replace(/\/[^\/]*$/, '/');
+  const params = new URLSearchParams({
+    host:   exoEntry.host   || '',
+    hip:    exoEntry.hip    || '',
+    hd:     exoEntry.hd     || '',
+    spect:  exoEntry.spect  || '',
+    lum:    exoEntry.lum    || '',
+    absmag: exoEntry.absmag || '',
+  });
+  window.open(base + 'exoplanet-system.html?' + params.toString(), '_blank', 'noopener');
+});
+
+// ── EXOPLANET CATALOG LOADER ──────────────────────────────────────────────────
+// Fetches /static/data/exoplanets.csv (installed by update-exoplanets.sh).
+// Builds exoHosts Map keyed on HIP number, HD number, and hostname —
+// in that priority order. HIP/HD are catalog-standard and unambiguous;
+// they bridge the gap between NASA's abbreviated hostnames and HYG's full names.
+async function loadExoplanetCatalog(){
+  try{
+    const head = await fetch('/static/data/exoplanets.csv',{method:'HEAD'});
+    if(!head.ok) return; // not installed yet — skip silently
+    const full = await fetch('/static/data/exoplanets.csv');
+    if(!full.ok) return;
+    const txt = await full.text();
+    exoCsvText = txt;  // cache for WB panel
+    const lines = txt.split('\n');
+    const cols = lines[0].split(',').map(c=>c.trim().replace(/"/g,'').toLowerCase());
+    const iHost = cols.indexOf('hostname');
+    const iHip  = cols.indexOf('hip_name');
+    const iHd   = cols.indexOf('hd_name');
+    const ps = s=>(s||'').replace(/"/g,'').trim();
+
+    // Pass 1: count confirmed planets per NASA hostname
+    const counts = new Map();
+    for(let i=1;i<lines.length;i++){
+      const p=lines[i].split(',');if(p.length<3)continue;
+      const host=ps(p[iHost]);if(!host)continue;
+      counts.set(host,(counts.get(host)||0)+1);
+    }
+
+    // Pass 2: index by HIP number, HD number, and hostname.
+    // Keys stored as plain numbers so we can look up s.hip and s.hd directly.
+    // e.g. NASA "HIP 70890" → strip prefix → key "70890" → matches HYG s.hip="70890"
+    for(let i=1;i<lines.length;i++){
+      const p=lines[i].split(',');if(p.length<3)continue;
+      const host=ps(p[iHost]);if(!host)continue;
+      const entry={count:counts.get(host)||1,hostName:host};
+
+      // HIP number (strip "HIP " prefix)
+      const hipRaw=ps(p[iHip]);
+      const hip=hipRaw.replace(/^HIP\s*/i,'').trim();
+      if(hip) exoHosts.set(hip, entry);           // key = bare number "70890"
+
+      // HD number (strip "HD " prefix)
+      const hdRaw=ps(p[iHd]);
+      const hd=hdRaw.replace(/^HD\s*/i,'').trim();
+      if(hd)  exoHosts.set('HD'+hd, entry);       // key = "HD22049"
+
+      // Hostname as final fallback (NASA abbreviated form e.g. "Proxima Cen")
+      exoHosts.set(host, entry);
+    }
+
+    console.info('[exoplanets] '+counts.size+' host stars indexed by HIP/HD/name');
+    if(allStars.length) buildStars(allStars);
+  }catch(e){
+    console.info('[exoplanets] not available:',e.message);
+  }
+}
+
+// ── UI CONTROLS ───────────────────────────────────────────────────────────────
+$('sd').addEventListener('input',e=>{dMax=+e.target.value;$('vd').textContent=dMax;buildStars(allStars);});
+$('sm').addEventListener('input',e=>{mMax=+e.target.value;$('vm').textContent=mMax;buildStars(allStars);});
+
+$('tL').addEventListener('change',e=>{
+  showL=e.target.checked;
+  buildStars(allStars);  // rebuild labels
+});
+
+$('tGl').addEventListener('change',e=>{
+  showGlow=e.target.checked;
+  if(gPts)gPts.visible=showGlow;
+});
+
+$('tGr').addEventListener('change',e=>{gridGrp.visible=e.target.checked;});
+$('tAr').addEventListener('change',e=>{cam.spin=e.target.checked;});
+
+// ── FACTION CONNECTION LINES & TERRITORY MESHES (server-side marching cubes) ──
+// Thin lines rendered client-side instantly.
+// Smooth metaball territory blobs computed by Flask/Python, returned as mesh.
+
+const LINE_OPACITY = {Territory:.60,'Trade Route':.45,Military:.75,Other:.40};
+const MESH_OPACITY = 0.28;
+const METABALL_R   = 1.2;   // ly — star blob radius
+const MC_R_LINE    = 0.6;   // ly — tube radius between stars
+const MC_THRESHOLD = 0.40;  // isosurface threshold
+const MC_RES       = 64;    // grid resolution
+
+function buildHipPosMap(){
+  const m=new Map();
+  allStars.forEach(s=>{
+    if(!s.hip) return;
+    const pos=new THREE.Vector3(s.x,s.y,s.z);
+    m.set(String(s.hip),pos); m.set(Number(s.hip),pos);
+  });
+  return m;
+}
+
+async function buildConnectionLines(){
+  connLines.forEach(l=>scene.remove(l)); connLines=[];
+  if(!showConnLines) return;
+
+  const url=connEraFilter
+    ?`/api/world/connections?era_id=${connEraFilter}`
+    :'/api/world/connections';
+  let conns=[];
+  try{
+    const r=await fetch(url);
+    if(!r.ok){console.warn('[connections] API error',r.status);return;}
+    conns=await r.json();
+  }catch(e){console.warn('[connections] fetch failed',e);return;}
+  console.info(`[connections] ${conns.length} connections`);
+  if(!conns.length) return;
+
+  const hipPos=buildHipPosMap();
+
+  // ── 1. Thin lines (instant) ───────────────────────────────────────────────
+  conns.forEach(c=>{
+    const pa=hipPos.get(c.star_hip_a)||hipPos.get(String(c.star_hip_a));
+    const pb=hipPos.get(c.star_hip_b)||hipPos.get(String(c.star_hip_b));
+    if(!pa||!pb) return;
+    const line=new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([pa.clone(),pb.clone()]),
+      new THREE.LineBasicMaterial({
+        color:new THREE.Color(c.faction_color||'#8899cc'),
+        transparent:true,opacity:LINE_OPACITY[c.conn_type]||.55,depthWrite:false}));
+    line.renderOrder=3; scene.add(line); connLines.push(line);
+  });
+
+  // ── 2. Territory meshes from server ──────────────────────────────────────
+  // Collect unique stars + connections per faction from connection list
+  const byFaction=new Map();
+  conns.forEach(c=>{
+    const pa=hipPos.get(c.star_hip_a)||hipPos.get(String(c.star_hip_a));
+    const pb=hipPos.get(c.star_hip_b)||hipPos.get(String(c.star_hip_b));
+    if(!pa||!pb) return;
+    if(!byFaction.has(c.faction_id))
+      byFaction.set(c.faction_id,{color:c.faction_color||'#8899cc',
+        faction_id:c.faction_id, hipSet:new Set(),stars:[],connections:[]});
+    const entry=byFaction.get(c.faction_id);
+    [[pa,c.star_hip_a],[pb,c.star_hip_b]].forEach(([pos,hip])=>{
+      if(!entry.hipSet.has(hip)){
+        entry.hipSet.add(hip);
+        entry.stars.push({x:pos.x,y:pos.y,z:pos.z,hip});
+      }
+    });
+    entry.connections.push({ax:pa.x,ay:pa.y,az:pa.z,bx:pb.x,by:pb.y,bz:pb.z});
+  });
+
+  // Add all era-controlled stars for each faction from the API
+  // These expand the territory to cover all claimed systems, not just connection endpoints
+  if(connEraFilter && byFaction.size){
+    try{
+      const ctrlResp = await fetch(`/api/world/territory_stars?era_id=${connEraFilter}`);
+      if(ctrlResp.ok){
+        const ctrlData = await ctrlResp.json(); // [{faction_id, hip, x, y, z}]
+        ctrlData.forEach(s=>{
+          const pos = hipPos.get(s.hip)||hipPos.get(String(s.hip));
+          if(!pos) return;
+          if(!byFaction.has(s.faction_id)) return; // only add to existing factions
+          const entry = byFaction.get(s.faction_id);
+          if(!entry.hipSet.has(s.hip)){
+            entry.hipSet.add(s.hip);
+            entry.stars.push({x:pos.x,y:pos.y,z:pos.z,hip:s.hip});
+          }
+        });
+      }
+    }catch(e){ console.warn('[territory] controlled stars fetch failed',e); }
+  }
+
+  const factionPayload=[...byFaction.values()].map(({color,faction_id,stars,connections})=>
+    ({color,faction_id,stars,connections}));
+  if(!factionPayload.length) return;
+
+  // Show building indicator
+  const lbl=$('tFl')?.closest('.sr')?.querySelector('span');
+  if(lbl) lbl.textContent='⬡ Faction Lines (building…)';
+
+  try{
+    const resp=await fetch('/api/world/territory_mesh',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        factions:factionPayload,
+        era_id:connEraFilter||null,
+        r:METABALL_R, r_line:MC_R_LINE,
+        threshold:MC_THRESHOLD, res:MC_RES, line_step:0.5
+      })
+    });
+    if(!resp.ok){ console.warn('[territory] mesh API error',resp.status); return; }
+    const {meshes}=await resp.json();
+    console.info(`[territory] received ${meshes.length} meshes from server`);
+
+    meshes.forEach(m=>{
+      const geo=new THREE.BufferGeometry();
+      geo.setAttribute('position',
+        new THREE.BufferAttribute(new Float32Array(m.vertices),3));
+      geo.setAttribute('normal',
+        new THREE.BufferAttribute(new Float32Array(m.normals),3));
+      const factionColor = new THREE.Color(m.color);
+      const mat=new THREE.MeshPhongMaterial({
+        color:factionColor,
+        emissive:factionColor.clone().multiplyScalar(0.4),
+        transparent:true, opacity:MESH_OPACITY,
+        side:THREE.DoubleSide, depthWrite:false,
+        shininess:20,
+        specular:new THREE.Color(0.1,0.1,0.15),
+      });
+      const mesh=new THREE.Mesh(geo,mat);
+      mesh.renderOrder=2;
+      scene.add(mesh);
+      connLines.push(mesh);
+    });
+  }catch(e){
+    console.warn('[territory] mesh fetch failed',e);
+  }finally{
+    if(lbl) lbl.textContent='⬡ Faction Lines';
+  }
+  console.info(`[connections] done — ${connLines.length} objects total`);
+}
+
+// Called by WB panel after add/delete
+window.wbRefreshConnectionLines=()=>{ if(showConnLines) buildConnectionLines(); };
+// Expose allStars for WB star search
+Object.defineProperty(window,'wbAllStars',{get:()=>allStars});
+
+$('tFl').addEventListener('change',async e=>{
+  showConnLines=e.target.checked;
+  $('faction-era-row').style.display=showConnLines?'':'none';
+  if(showConnLines){
+    const lbl=$('tFl').closest('.sr')?.querySelector('span');
+    if(lbl){ lbl.textContent='⬡ Faction Lines (building…)'; }
+    await buildConnectionLines();
+    if(lbl){ lbl.textContent='⬡ Faction Lines'; }
+  } else {
+    await buildConnectionLines();
+  }
+});
+
+async function populateFactionEraDropdown(){
+  try{
+    const r=await fetch('/api/world/eras');
+    const eras=r.ok?await r.json():[];
+    const sel=$('faction-era-sel');
+    sel.innerHTML='<option value="0">— All Eras —</option>'
+      +eras.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+  }catch(e){}
+}
+populateFactionEraDropdown();
+
+$('faction-era-sel').addEventListener('change',async e=>{
+  connEraFilter=parseInt(e.target.value)||0;
+  await buildConnectionLines();
+});
+['OB','A','F','G','K','M','D','X'].forEach(k=>{
+  $('t'+k).addEventListener('change',e=>{sv[k]=e.target.checked;buildStars(allStars);});
+});
+
+// ── FULL CATALOG FETCH ────────────────────────────────────────────────────────
+// Strategy: always try the LOCAL copy first (/static/data/hyg.csv, served by
+// nginx — zero CORS issues). Fall back to external URLs only if local is absent.
+// install.sh downloads the file to the Pi during setup, so the local path
+// will always work on a properly installed Pi.
+const EQ2GAL=[[-0.0548755604,0.4941094279,-0.8676661490],[-0.8734370902,-0.44482963,-0.1980763734],[-0.4838350155,0.7469822445,0.4559837762]];
+const LY=3.26156;
+function eq2scene(xp,yp,zp){
+  const gx=EQ2GAL[0][0]*xp+EQ2GAL[0][1]*yp+EQ2GAL[0][2]*zp;
+  const gy=EQ2GAL[1][0]*xp+EQ2GAL[1][1]*yp+EQ2GAL[1][2]*zp;
+  const gz=EQ2GAL[2][0]*xp+EQ2GAL[2][1]*yp+EQ2GAL[2][2]*zp;
+  return[gx*LY,gz*LY,gy*LY];
+}
+function pf(s){return parseFloat(String(s??'').replace(/[\u2212\u2013]/g,'-').trim());}
+
+// Bolometric correction by spectral type (Flower 1996 / Torres 2010)
+function bcForSpect(spect){
+  const s=(spect||'').trim().toUpperCase();
+  if(s.startsWith('O')) return -4.0;
+  if(s.startsWith('B')) return -2.0;
+  if(s.startsWith('A')) return -0.3;
+  if(s.startsWith('F')) return -0.1;
+  if(s.startsWith('G')) return -0.1;
+  if(s.startsWith('K')) return -0.4;
+  if(s.startsWith('M')){
+    const sub=s.length>1&&s[1]>='0'&&s[1]<='9'?parseFloat(s[1]):2.0;
+    return -(1.0+sub*0.25);
+  }
+  if(s.startsWith('D')) return -0.5;
+  return -0.1;
+}
+
+function parseHYGText(txt){
+  const MAX_PC=122/LY;
+  const lines=txt.split('\n');
+  const hdr=lines[0];
+  const cols=hdr.split(',').map(c=>c.trim().toLowerCase().replace(/"/g,''));
+
+  // Log the actual header so it's visible in the browser console
+  console.info('[catalog] CSV header columns:', cols.join(', '));
+
+  // Column name mapping — handles HYG v3/v4 AND AT-HYG "hyglike" variants
+  function col(...names){
+    for(const n of names){
+      const i=cols.indexOf(n);
+      if(i>=0)return i;
+    }
+    return -1;
+  }
+
+  const di = col('dist','distance','dist_ly','dist_pc');
+  const xi = col('x','x_coord','x_pc');
+  const yi = col('y','y_coord','y_pc');
+  const zi = col('z','z_coord','z_pc');
+  const pi = col('proper','name','proper_name');
+  const bi = col('bf','bayer_flamsteed','bf_desig');
+  const hi = col('hip','hipparcos','hip_id');
+  const hdi= col('hd','henry_draper','hd_id');
+  const hri= col('hr','harvard_revised','hr_id','yale');
+  const gli= col('gl','gliese','gj','gl_id','gliese_id');
+  const si = col('spect','spectrum','spectral_type','spect_type');
+  const mi = col('mag','vmag','visual_mag','v_mag');
+  const ai = col('absmag','abs_mag','absolute_mag','absmag_v');
+  const ci2= col('ci','color_index','b_v','bv');
+  const lumi  = col('lum','luminosity','lum_v');
+  const basei = col('base');
+  const dpci  = col('dist','distance','dist_pc');
+
+  // Report which critical columns are missing
+  if(di<0||xi<0||yi<0||zi<0){
+    const missing=[];
+    if(di<0)missing.push('dist');
+    if(xi<0)missing.push('x');
+    if(yi<0)missing.push('y');
+    if(zi<0)missing.push('z');
+    throw new Error('missing columns: '+missing.join(',')+
+      ' — header was: '+cols.slice(0,20).join(', '));
+  }
+
+  const stars=[];
+  for(let i=1;i<lines.length;i++){
+    const p=lines[i].split(',');
+    if(p.length<5)continue;
+    const dp=pf(p[di]);if(!isFinite(dp)||dp<=0||dp>MAX_PC)continue;
+    const xp=pf(p[xi]),yp=pf(p[yi]),zp=pf(p[zi]);
+    if(!isFinite(xp)||!isFinite(yp)||!isFinite(zp))continue;
+    const[sx,sy,sz]=eq2scene(xp,yp,zp);
+    const sp=si>=0?(p[si]||'').trim().replace(/^"|"$/g,''):'';
+    const proper = pi>=0?(p[pi]||'').trim().replace(/^"|"$/g,''):'';
+    const bf     = bi>=0?(p[bi]||'').trim().replace(/^"|"$/g,''):'';
+    const hip    = hi>=0?(p[hi]||'').trim().replace(/^"|"$/g,''):'';
+    const hd     = hdi>=0?(p[hdi]||'').trim().replace(/^"|"$/g,''):'';
+    const hr     = hri>=0?(p[hri]||'').trim().replace(/^"|"$/g,''):'';
+    const gl     = gli>=0?(p[gli]||'').trim().replace(/^"|"$/g,''):'';
+
+    // displayName: prefer the familiar colloquial name people know.
+    // IAU_COLLOQUIAL maps the official IAU proper name → the familiar name.
+    // If a mapping exists, use the familiar name as display and keep the IAU
+    // name as "Also Known As". For everything else, fall through to bf → HIP.
+    const IAU_COLLOQUIAL = {
+      'Rigil Kentaurus': 'Alpha Centauri A',
+      'Toliman':         'Alpha Centauri B',
+      'Ran':             'Epsilon Eridani',
+      'Tabit':           'Pi3 Orionis',
+      'Alsafi':          'Sigma Draconis',
+      'Muscida':         'Pi Ursae Majoris',
+      'Hadar':           'Beta Centauri',
+      'Mimosa':          'Beta Crucis',
+      'Acrux':           'Alpha Crucis',
+      'Adhara':          'Epsilon Canis Majoris',
+      'Funi':            'Epsilon Indi',
+    };
+
+    const colloquial = IAU_COLLOQUIAL[proper] || '';
+    const displayName = colloquial || proper || bf || (hip ? 'HIP '+hip : '');
+
+    // altNames: IAU name shown as "Also Known As" when we replaced it with colloquial
+    const altSet = new Set();
+    if(colloquial && proper) altSet.add(proper);            // IAU name as aka
+    if(proper && bf && bf !== proper) altSet.add(bf);       // bf if different
+
+    stars.push({x:sx,y:sy,z:sz,dist_ly:dp*LY,spect:sp,sc:specClass(sp),
+      name:    displayName,
+      proper:  proper,
+      bf:      bf,
+      hip:     hip,
+      hd:      hd,
+      hr:      hr,
+      gl:      gl,
+      altNames:[...altSet],
+      mag:    pf(mi>=0?p[mi]:null),
+      absmag: pf(ai>=0?p[ai]:null),
+      ci:     pf(ci2>=0?p[ci2]:null),
+      lum:    (()=>{
+        // Bolometric luminosity: apply spectral correction to visual absmag
+        const am = pf(ai>=0?p[ai]:null);
+        if(!isFinite(am)) return null;
+        const bc = bcForSpect(sp);
+        return Math.pow(10,(4.83-(am+bc))/2.5);
+      })(),
+      _rawX: xp, _rawY: yp, _rawZ: zp,
+      _base:   basei>=0?(p[basei]||'').trim().replace(/^"|"$/g,''):'',
+      _distpc: dpci>=0?parseFloat(p[dpci])||0:0});
+  }
+  if(stars.length<100)throw new Error('only '+stars.length+' stars parsed — file may be truncated');
+  return stars;
+}
+
+async function tryLiveFetch(){
+  // Only fetch from the LOCAL nginx path — same-origin, zero CORS issues.
+  // The file is placed there by update-catalog.sh running on the Pi.
+  // External URLs are intentionally removed: they cause CORS errors when
+  // the page is served from a .local hostname.
+  const LOCAL='/static/data/hyg.csv';
+
+  $('ds').innerHTML='CATALOG: checking local cache… <span style="opacity:.5">· v1.4</span>';
+
+  try{
+    // HEAD request first — fast check whether the file exists at all
+    const head=await fetch(LOCAL,{method:'HEAD'});
+    if(!head.ok) throw new Error('HTTP '+head.status+' — file not found at '+LOCAL);
+
+    const bytes=parseInt(head.headers.get('content-length')||'0');
+    const mb=(bytes/1048576).toFixed(1);
+    $('ds').innerHTML='CATALOG: downloading from local cache'+(bytes?' ('+mb+' MB)':'')+'… <span style="opacity:.5">· v1.4</span>';
+
+    const ctrl=new AbortController();
+    const tid=setTimeout(()=>ctrl.abort(),60000); // 60s for large file on slow network
+    const r=await fetch(LOCAL,{signal:ctrl.signal});
+    clearTimeout(tid);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+
+    $('ds').innerHTML='CATALOG: parsing star data… <span style="opacity:.5">· v1.4</span>';
+    const txt=await r.text();
+
+    if(!txt.includes('proper')||txt.length<50000)
+      throw new Error('file too small or wrong format ('+txt.length+' bytes) — run update-catalog.sh');
+
+    const stars=parseHYGText(txt);
+    allStars=stars;
+    buildMultiStarGroups(allStars);
+    buildStars(allStars);
+    $('ds').innerHTML='HYG CATALOG LOADED · '+stars.length.toLocaleString()+' STARS WITHIN 120 LY <span style="opacity:.5">· v1.4</span>';
+    console.info('[catalog] Loaded '+stars.length+' stars from local cache');
+
+  }catch(e){
+    // Show a clear, permanent message so the user knows exactly what happened
+    const msg=e.message||String(e);
+    $('ds').innerHTML='⚠ CATALOG ERROR: '+msg+' — run: sudo bash update-catalog.sh <span style="opacity:.5">· v1.4</span>';
+    $('ds').style.color='#cc6600';
+    $('ds').style.fontWeight='bold';
+    $('ds').title=msg; // full message on hover
+    console.warn('[catalog] Local catalog failed:',msg);
+    console.info('[catalog] Fix: SSH into Pi and run: sudo bash ~/starmap/update-catalog.sh');
+  }
+}
+
+// ── SEARCH ────────────────────────────────────────────────────────────────────
+(function(){
+  const inp    = $('srch-input');
+  const btn    = $('srch-btn');
+  const clrBtn = $('srch-clear');
+  const box    = $('srch-results');
+  let activeIdx = -1;   // keyboard nav index
+  let matches   = [];
+
+  function showClear(v){ clrBtn.style.display = v ? 'flex' : 'none'; }
+
+  function runSearch(raw){
+    const q = raw.trim();
+    showClear(q.length > 0);
+    if(!q){ close(); return; }
+
+    // Wildcard both ends: match proper name, bf designation, HIP/HD/HR/GJ numbers
+    const lq = q.toLowerCase();
+    matches = allStars.filter(s => {
+      if(s.name && s.name.toLowerCase().includes(lq)) return true;
+      if(s.bf   && s.bf.toLowerCase().includes(lq))   return true;
+      if(s.hip  && ('hip '+s.hip).includes(lq))        return true;
+      if(s.hd   && ('hd ' +s.hd ).includes(lq))        return true;
+      if(s.hr   && ('hr ' +s.hr ).includes(lq))        return true;
+      if(s.gl   && ('gj ' +s.gl.replace(/^(gl|gj|gliese)\s*/i,'')).includes(lq)) return true;
+      return false;
+    }).sort((a,b)=>{
+      // Sort: proper name match > bf match > hip match, then alphabetical
+      const an = (a.name||a.bf||'').toLowerCase();
+      const bn = (b.name||b.bf||'').toLowerCase();
+      const aStart = an.startsWith(lq), bStart = bn.startsWith(lq);
+      if(aStart !== bStart) return aStart ? -1 : 1;
+      // Prefer stars with proper names over bf-only
+      if(!!a.proper !== !!b.proper) return a.proper ? -1 : 1;
+      return an.localeCompare(bn);
+    }).slice(0, 30);  // cap at 30 results
+
+    renderResults();
+  }
+
+  function renderResults(){
+    if(!matches.length){
+      box.style.display = 'block';
+      box.innerHTML = '<div class="srch-none">No stars found</div>';
+      activeIdx = -1;
+      return;
+    }
+    box.style.display = 'block';
+    box.innerHTML = matches.map((s,i)=>{
+      const dist  = s.dist_ly > 0 ? s.dist_ly.toFixed(1)+' ly' : '0 ly (Sol)';
+      const mag   = isNaN(s.mag) ? '' : 'mag '+s.mag.toFixed(1);
+      const spect = s.spect ? s.spect.split(' ')[0] : '';
+      // Show proper name prominently; show bf as subtitle if it differs
+      const displayMain = s.proper || s.bf || s.name || `HIP ${s.hip}`;
+      const displaySub  = s.proper && s.bf && s.bf !== s.proper ? s.bf : '';
+      return `<div class="srch-item" data-i="${i}">
+        <span class="si-name">${displayMain}${displaySub?'<br><span style="font-size:var(--fs-sm);opacity:.7">'+displaySub+'</span>':''}</span>
+        <span class="si-meta">${dist}<br>${spect}${spect&&mag?' · ':''}${mag}</span>
+      </div>`;
+    }).join('');
+
+    // Click handler for each result
+    box.querySelectorAll('.srch-item').forEach(el=>{
+      el.addEventListener('mousedown', e=>{
+        e.preventDefault();  // keep focus on input
+        flyTo(matches[+el.dataset.i]);
+      });
+    });
+    activeIdx = -1;
+  }
+
+  function close(){
+    box.style.display = 'none';
+    box.innerHTML = '';
+    matches = [];
+    activeIdx = -1;
+  }
+
+  function flyTo(star){
+    if(!star) return;
+    // Focus camera on this star
+    cam.target.set(star.x, star.y, star.z);
+    cam.pan.set(0,0,0);
+    cam.sph.radius = Math.max(8, star.dist_ly * 0.15);
+    // Open the detail panel
+    openD(star);
+    // Update input to show the selected name
+    inp.value = star.proper || star.bf || star.name || `HIP ${star.hip}`;
+    showClear(true);
+    close();
+    inp.blur();
+  }
+
+  // Keyboard navigation
+  inp.addEventListener('keydown', e=>{
+    if(!matches.length) return;
+    const items = box.querySelectorAll('.srch-item');
+    if(e.key === 'ArrowDown'){
+      e.preventDefault();
+      activeIdx = Math.min(activeIdx+1, matches.length-1);
+    } else if(e.key === 'ArrowUp'){
+      e.preventDefault();
+      activeIdx = Math.max(activeIdx-1, 0);
+    } else if(e.key === 'Enter'){
+      e.preventDefault();
+      flyTo(matches[activeIdx >= 0 ? activeIdx : 0]);
+      return;
+    } else if(e.key === 'Escape'){
+      close(); inp.blur(); return;
+    } else { return; }
+    // Highlight active item
+    items.forEach((el,i)=>el.classList.toggle('srch-active', i===activeIdx));
+    if(items[activeIdx]) items[activeIdx].scrollIntoView({block:'nearest'});
+  });
+
+  inp.addEventListener('input',  e => runSearch(e.target.value));
+  inp.addEventListener('focus',  e => { if(inp.value.trim()) runSearch(inp.value); });
+  inp.addEventListener('blur',   ()=> setTimeout(close, 150)); // delay so click fires first
+
+  btn.addEventListener('click', ()=>{ inp.focus(); runSearch(inp.value); });
+
+  clrBtn.addEventListener('click', ()=>{
+    inp.value = '';
+    showClear(false);
+    close();
+    // Reset camera to origin
+    cam.target.set(0,0,0);
+    cam.pan.set(0,0,0);
+    cam.sph.radius = 160;
+    $('dp').style.display = 'none';
+    inp.focus();
+  });
+})();
+
+// ── RENDER LOOP ───────────────────────────────────────────────────────────────
+function animate(){
+  requestAnimationFrame(animate);
+  cam.update();
+
+  const t=Date.now()*.001;
+
+  // Sol pulse
+  solMesh.scale.setScalar(1+.08*Math.sin(t*1.3));
+
+  // Sol label — same screen-space sizing as star labels
+  (()=>{
+    const W=renderer.domElement.clientWidth||innerWidth;
+    const H=renderer.domElement.clientHeight||innerHeight;
+    _starNDC.set(0,0,0).project(camera);
+    const depth=_starNDC.z;
+    const ndcPxH=(LABEL_PX_H/H)*2.0;
+    _offsetNDC.set(_starNDC.x,_starNDC.y+ndcPxH,depth).unproject(camera);
+    const wH=_offsetNDC.distanceTo(new THREE.Vector3(0,0,0));
+    const asp=solLbl.userData.aspect||5;
+    solLbl.scale.set(wH*asp,wH,1);
+    const ndcOffX=(LABEL_OFFSET_PX/W)*2.0;
+    _offsetNDC.set(_starNDC.x+ndcOffX,_starNDC.y,depth).unproject(camera);
+    solLbl.position.set(_offsetNDC.x+wH*asp*.5,_offsetNDC.y+wH*.5,_offsetNDC.z);
+  })();
+
+  // Drive glow scale uniform — glow radius in screen pixels scales with zoom
+  // At full view (radius ~160) glow is modest; zoomed in (radius ~5) it blooms
+  if(gPts && gPts.material && gPts.material.uniforms){
+    // Map camera radius: far=3.5×, close=12×
+    const r=cam.sph.radius;
+    const gs=THREE.MathUtils.clamp(1.75 + (160-r)*0.0275, 1.75, 7.0);
+    gPts.material.uniforms.glowScale.value=gs;
+  }
+
+  // Per-frame label screen-space update
+  updateLabels();
+
+  renderer.render(scene,camera);
+}
+animate();
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+ss('Loading embedded catalog…',20);
+// HIP numbers for embedded catalog stars that are part of binary systems
+// Needed so the stellar-system viewer can link to exoplanet viewer
+const EMBEDDED_HIP = {
+  'Sirius':             '32349',
+  'Sirius B':           '32349', // same system, no separate HIP in AT-HYG
+  'Procyon':            '37279',
+  'Procyon B':          '37279',
+  'Alpha Centauri A':   '71683',
+  'Alpha Centauri B':   '71681',
+  'Rigil Kentaurus':    '71683',
+  'Toliman':            '71681',
+  'Groombridge 34 A':   '1475',
+  'Groombridge 34 B':   '1475',
+  '61 Cygni A':         '104214',
+  '61 Cygni B':         '104217',
+  'Struve 2398 A':      '99461',
+  'Struve 2398 B':      '99461',
+  'Eta Cassiopeiae A':  '3821',
+  'Eta Cassiopeiae B':  '3821',
+  '70 Ophiuchi A':      '88601',
+  '70 Ophiuchi B':      '88601',
+  '40 Eridani A':       '19849',
+  '40 Eridani B':       '19849',
+  '40 Eridani C':       '19849',
+};
+
+allStars=RAW_STARS.map(r=>({
+  name:r[0],spect:r[1],dist_ly:r[2],
+  x:r[3],y:r[4],z:r[5],
+  mag:r[6],absmag:r[7],ci:r[8],
+  sc:specClass(r[1]),
+  proper:r[0],
+  bf:'',hip:EMBEDDED_HIP[r[0]]||'',hd:'',hr:'',gl:'',
+  altNames: (()=>{
+    // Embedded catalog uses colloquial names already.
+    // altNames = the IAU official name for stars that have one.
+    const COLLOQUIAL_TO_IAU = {
+      'Rigil Kentaurus': 'Rigil Kentaurus',   // already IAU — no entry needed
+      'Toliman':         'Toliman',
+      'Alpha Centauri A':'Rigil Kentaurus',
+      'Alpha Centauri B':'Toliman',
+      'Epsilon Eridani': 'Ran',
+      'Pi3 Orionis':     'Tabit',
+      'Sigma Draconis':  'Alsafi',
+      'Epsilon Indi':    'Funi',
+    };
+    const iau = COLLOQUIAL_TO_IAU[r[0]];
+    return (iau && iau !== r[0]) ? [iau] : [];
+  })(),
+}));
+ss('Building scene…',60);
+buildMultiStarGroups(allStars);
+buildStars(allStars);
+setTimeout(()=>{
+  const ld=$('ld');ld.style.opacity='0';
+  setTimeout(()=>ld.style.display='none',900);
+},400);
+
+// Opportunistic live fetch runs silently in background
+tryLiveFetch();
+// Load exoplanet catalog for planet indicators (requires update-exoplanets.sh)
+// ── Inject WB panel and load shared JS ──────────────────────────────────────
+wbInjectPanel();
+// Restore page-specific position for #wb-panel
+(()=>{
+  const p=document.getElementById('wb-panel');
+  if(p){ p.style.position='fixed'; p.style.top='var(--panel-top)';
+         p.style.right='calc(var(--pw-det) + 28px)';
+         p.style.width='clamp(300px,28vw,480px)';
+         p.style.maxHeight='calc(100vh - var(--panel-top) - 30px)';
+         p.style.background='var(--pn)';
+         p.style.border='1px solid rgba(160,80,220,.35)';
+         p.style.borderRadius='8px';
+         p.style.zIndex='20';
+         p.style.backdropFilter='blur(12px)';
+         p.style.overflow='hidden'; }
+})();
+loadExoplanetCatalog();
+loadWbPlanetHips();
+// ══════════════════════════════════════════════════════════════════════════════
+// WB logic → /static/js/worldbuilding.js
+</script>
+</body>
+</html>
