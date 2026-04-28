@@ -11,6 +11,7 @@ Service: managed by systemd (see install-api.sh)
 
 import sqlite3, json, os
 from datetime import datetime
+import time
 from flask import Flask, request, jsonify, g
 
 app = Flask(__name__)
@@ -414,7 +415,6 @@ def upload_surface_map(pid):
     data_url = d.get('data_url','')
     if not data_url:
         return jsonify({'error':'no data_url'}), 400
-    # Strip data:image/...;base64, prefix
     m = _re.match(r'data:image/(\w+);base64,(.+)', data_url, _re.DOTALL)
     if not m:
         return jsonify({'error':'invalid data_url'}), 400
@@ -423,11 +423,17 @@ def upload_surface_map(pid):
     raw = base64.b64decode(m.group(2))
     import os as _os
     _os.makedirs(MAPS_DIR, exist_ok=True)
+    # Delete any existing map for this planet (all extensions) before writing new one
+    db = get_db()
+    old = db.execute('SELECT surface_map FROM wb_planets WHERE id=?', (pid,)).fetchone()
+    if old and old['surface_map']:
+        old_path = _os.path.join(MAPS_DIR, old['surface_map'])
+        if _os.path.exists(old_path):
+            _os.remove(old_path)
     fname = f'planet_{pid}.{ext}'
     fpath = _os.path.join(MAPS_DIR, fname)
     with open(fpath, 'wb') as f:
         f.write(raw)
-    db = get_db()
     db.execute('UPDATE wb_planets SET surface_map=?,updated_at=? WHERE id=?',
                (fname, now(), pid))
     db.commit()
@@ -444,7 +450,7 @@ def get_surface_map(pid):
     fpath = _os.path.join(MAPS_DIR, fname)
     if not _os.path.exists(fpath):
         return jsonify({'url': None})
-    return jsonify({'url': f'/static/data/maps/{fname}'})
+    return jsonify({'url': f'/static/data/maps/{fname}?v={int(time.time())}'})
 
 @app.route('/api/world/planets/<int:pid>/surface_map', methods=['DELETE'])
 def delete_surface_map(pid):
@@ -618,7 +624,7 @@ def get_moon_surface_map(mid):
     fpath = _os.path.join(MAPS_DIR, fname)
     if not _os.path.exists(fpath):
         return jsonify({'url': None})
-    return jsonify({'url': f'/static/data/maps/{fname}'})
+    return jsonify({'url': f'/static/data/maps/{fname}?v={int(time.time())}'})
 
 @app.route('/api/world/moons/<int:mid>/surface_map', methods=['DELETE'])
 def delete_moon_surface_map(mid):

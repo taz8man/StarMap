@@ -162,6 +162,7 @@ const TARGET_COLOR    = '#'+(params.get('color')||'2266aa');
 const TARGET_TYPE     = (params.get('type')||'Planet').trim();
 const TARGET_ORBIT_AU = parseFloat(params.get('orbit_au')||'0');
 const TARGET_PERIOD   = parseFloat(params.get('period')||'365');
+const TARGET_SURFACE_MAP = (params.get('surface_map')||'').trim(); // pre-bundled texture URL
 // Host star context — passed from exo/solar viewer
 const TARGET_STAR_NAME  = (params.get('star_name')||TARGET_PARENT).trim();
 const TARGET_STAR_HIP   = (params.get('star_hip')||'').trim();
@@ -311,11 +312,14 @@ const PLANET_SPIN_RATE = 0.08;
 let planetBaseColor = '#2266aa';
 let planetHasTexture = false;
 let resolvedPlanetId = TARGET_PLANET_ID || 0; // may be updated after ensurePlanetRecord
+let _ensureInFlight = null; // prevents concurrent duplicate planet creation
 
 // Ensure the planet exists in wb_planets, creating star+planet if needed.
 // Returns the wb_planets id, or 0 on failure.
 async function ensurePlanetRecord(){
   if(resolvedPlanetId) return resolvedPlanetId;
+  if(_ensureInFlight) return await _ensureInFlight;
+  _ensureInFlight = (async()=>{
   try{
     // Ensure star record exists
     let starId = null;
@@ -352,6 +356,9 @@ async function ensurePlanetRecord(){
     resolvedPlanetId = planet?.id || 0;
     return resolvedPlanetId;
   }catch(e){ console.warn('ensurePlanetRecord failed:',e); return 0; }
+  finally{ _ensureInFlight = null; }
+  })();
+  return await _ensureInFlight;
 }
 
 function applyPlanetTexture(file){
@@ -452,8 +459,15 @@ function applyTextureToMesh(mesh, url, onDone){
 }
 
 async function tryLoadMoonTexture(mo){
-  if(mo.texLoaded || !mo.wb_id) return;
-  mo.texLoaded = true; // mark attempted so we don't retry every frame
+  if(mo.texLoaded) return;
+  mo.texLoaded = true;
+  // Priority 1: pre-bundled solar system texture
+  if(mo.sol_tex){
+    applyTextureToMesh(mo.mesh, mo.sol_tex, ()=>{ mo.hasTexture=true; });
+    return;
+  }
+  // Priority 2: WB database texture
+  if(!mo.wb_id) return;
   try{
     const res = await fetch(`/api/world/moons/${mo.wb_id}/surface_map`);
     if(!res.ok) return;
@@ -465,9 +479,28 @@ async function tryLoadMoonTexture(mo){
 
 // Auto-load planet surface map when scene builds
 async function tryAutoLoadPlanetMap(){
-  if(!resolvedPlanetId || !planetMeshRef) return;
+  // Priority 1: pre-bundled texture passed via URL param (solar system viewer)
+  if(TARGET_SURFACE_MAP && planetMeshRef){
+    applyTextureToMesh(planetMeshRef, TARGET_SURFACE_MAP, ()=>{
+      planetHasTexture=true;
+      const fname=TARGET_SURFACE_MAP.split('/').pop();
+      if($('tex-name')) $('tex-name').textContent=fname;
+      if($('tex-clear')) $('tex-clear').style.display='block';
+    });
+    // Also load any pre-bundled moon textures immediately (no zoom wait)
+    moonObjects.forEach(mo=>{
+      if(mo.sol_tex && !mo.texLoaded){
+        mo.texLoaded=true;
+        applyTextureToMesh(mo.mesh, mo.sol_tex, ()=>{ mo.hasTexture=true; });
+      }
+    });
+    return;
+  }
+  // Priority 2: saved texture in WB database
+  const pid = resolvedPlanetId;
+  if(!pid || !planetMeshRef) return;
   try{
-    const res = await fetch(`/api/world/planets/${resolvedPlanetId}/surface_map`);
+    const res = await fetch(`/api/world/planets/${pid}/surface_map`);
     if(!res.ok) return;
     const {url} = await res.json();
     if(!url) return;
@@ -483,7 +516,7 @@ async function tryAutoLoadPlanetMap(){
 document.addEventListener('DOMContentLoaded', ()=>{
   $('tex-input').addEventListener('change', e=>{
     const f = e.target.files[0]; if(!f) return;
-    applyPlanetTexture(f, TARGET_PLANET_ID);
+    applyPlanetTexture(f);
     e.target.value = '';
   });
   $('tex-clear').addEventListener('click', e=>{
@@ -596,6 +629,9 @@ async function loadSystem(){
   const allMoons = [];
 
   // Known moons — apply user overlay if imported
+  // Pre-bundled sol textures for known moons
+  const SOL_MOON_TEX = {'Moon':'/static/data/maps/sol/moon.jpg'};
+
   for(const km of knownMoons){
     const overlay = userMoons.find(m=>m.nasa_moon_name===km.name);
     allMoons.push({
@@ -613,6 +649,7 @@ async function loadSystem(){
       wiki:       km.wiki,
       source:     'known',
       wb_id:      (overlay&&overlay.id)||null,
+      sol_tex:    SOL_MOON_TEX[km.name]||null,
     });
   }
 
@@ -724,9 +761,10 @@ function buildScene(moons){
 
     moonObjects.push({data:md, mesh, label:lbl, typeLabel,
       a_scene, scale, r_vis, color:md.color,
-      wb_id: md.wb_id||null,         // worldbuilding DB id for map lookup
-      hasTexture: false,              // true once surface map applied
-      texLoaded:  false});            // true once attempted load
+      wb_id: md.wb_id||null,
+      sol_tex: md.sol_tex||null,   // pre-bundled texture path (solar system viewer)
+      hasTexture: false,
+      texLoaded:  false});
   });
 
   // Wire pickables
@@ -891,7 +929,7 @@ function animate(){
 
   // Zoom-triggered moon texture loading
   moonObjects.forEach(mo=>{
-    if(mo.texLoaded || !mo.wb_id) return;
+    if(mo.texLoaded || (!mo.wb_id && !mo.sol_tex)) return;
     const mp = mo.mesh.position;
     const dx = camera.position.x-mp.x, dy = camera.position.y-mp.y, dz = camera.position.z-mp.z;
     const dist = Math.sqrt(dx*dx+dy*dy+dz*dz);
@@ -934,11 +972,13 @@ function animate(){
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 loadSystem().then(()=>{
   tryAutoLoadPlanetMap();
+  // Load pre-bundled sol textures immediately — no zoom wait needed
+  moonObjects.forEach(mo=>{ if(mo.sol_tex) tryLoadMoonTexture(mo); });
   animate();
 }).catch(err=>{
   $('sys-sub').textContent='Error loading system: '+err.message;
   console.error('loadSystem error:', err);
-  animate(); // still render the empty scene
+  animate();
 });
 </script>
 </body>

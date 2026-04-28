@@ -264,6 +264,49 @@ function makeOrbitLine(a,e,inc_deg,color){
   return new THREE.Line(geo,mat);
 }
 
+// ── SOLAR SURFACE TEXTURES ────────────────────────────────────────────────────
+// Auto-loaded from /static/data/maps/sol/ — run update-solar-textures.sh to fetch
+const SOL_TEX_DIR = '/static/data/maps/sol/';
+const SOL_PLANET_MAP = {
+  'Mercury':'mercury.jpg','Venus':'venus.jpg','Earth':'earth.jpg',
+  'Mars':'mars.jpg','Jupiter':'jupiter.jpg','Saturn':'saturn.jpg',
+  'Uranus':'uranus.jpg','Neptune':'neptune.jpg'
+};
+const SOL_MOON_MAP = {
+  'Moon':'moon.jpg'
+};
+
+function applyTexToMesh(mesh, url){
+  const img=new Image();
+  img.crossOrigin='anonymous';
+  img.onload=()=>{
+    const oc=document.createElement('canvas');
+    oc.width=img.naturalWidth; oc.height=img.naturalHeight;
+    oc.getContext('2d').drawImage(img,0,0);
+    const tex=new THREE.CanvasTexture(oc);
+    tex.wrapS=THREE.RepeatWrapping;
+    tex.needsUpdate=true;
+    mesh.material=new THREE.MeshBasicMaterial({map:tex});
+    mesh.material.needsUpdate=true;
+  };
+  img.onerror=()=>{};
+  img.src=url;
+}
+
+function loadSolTextures(){
+  // Sun texture
+  applyTexToMesh(sunMesh, SOL_TEX_DIR+'sun.jpg');
+  // Planets and moons
+  planetObjects.forEach(po=>{
+    const fname=SOL_PLANET_MAP[po.data.name];
+    if(fname) applyTexToMesh(po.mesh, SOL_TEX_DIR+fname);
+    po.moons.forEach(mo=>{
+      const mfname=SOL_MOON_MAP[mo.data.name];
+      if(mfname) applyTexToMesh(mo.mesh, SOL_TEX_DIR+mfname);
+    });
+  });
+}
+
 // ── PLANET BODY (dark sphere, no glow per request) ────────────────────────────
 function makePlanetMesh(r,color){
   const geo=new THREE.SphereGeometry(r,24,16);
@@ -554,6 +597,7 @@ function openDetail(h){
           star_absmag: '4.83',
           star_dist:   '0',
           star_name:   'Sol',
+          surface_map: SOL_TEX_DIR + (SOL_PLANET_MAP[d.name]||''),
         });
         window.open(base+'planet-system.html?'+p.toString(),'_blank','noopener');
       };
@@ -634,6 +678,7 @@ function animate(){
   renderer.render(scene,camera);
 }
 animate();
+loadSolTextures();
 </script>
 </body>
 </html>

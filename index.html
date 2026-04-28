@@ -1793,7 +1793,7 @@ async function tryLiveFetch(){
   // the page is served from a .local hostname.
   const LOCAL='/static/data/hyg.csv';
 
-  $('ds').innerHTML='CATALOG: checking local cache… <span style="opacity:.5">· v1.4</span>';
+  $('ds').innerHTML='CATALOG: checking local cache… <span style="opacity:.5">· v1.5</span>';
 
   try{
     // HEAD request first — fast check whether the file exists at all
@@ -1802,7 +1802,7 @@ async function tryLiveFetch(){
 
     const bytes=parseInt(head.headers.get('content-length')||'0');
     const mb=(bytes/1048576).toFixed(1);
-    $('ds').innerHTML='CATALOG: downloading from local cache'+(bytes?' ('+mb+' MB)':'')+'… <span style="opacity:.5">· v1.4</span>';
+    $('ds').innerHTML='CATALOG: downloading from local cache'+(bytes?' ('+mb+' MB)':'')+'… <span style="opacity:.5">· v1.5</span>';
 
     const ctrl=new AbortController();
     const tid=setTimeout(()=>ctrl.abort(),60000); // 60s for large file on slow network
@@ -1810,7 +1810,7 @@ async function tryLiveFetch(){
     clearTimeout(tid);
     if(!r.ok) throw new Error('HTTP '+r.status);
 
-    $('ds').innerHTML='CATALOG: parsing star data… <span style="opacity:.5">· v1.4</span>';
+    $('ds').innerHTML='CATALOG: parsing star data… <span style="opacity:.5">· v1.5</span>';
     const txt=await r.text();
 
     if(!txt.includes('proper')||txt.length<50000)
@@ -1820,13 +1820,13 @@ async function tryLiveFetch(){
     allStars=stars;
     buildMultiStarGroups(allStars);
     buildStars(allStars);
-    $('ds').innerHTML='HYG CATALOG LOADED · '+stars.length.toLocaleString()+' STARS WITHIN 120 LY <span style="opacity:.5">· v1.4</span>';
+    $('ds').innerHTML='HYG CATALOG LOADED · '+stars.length.toLocaleString()+' STARS WITHIN 120 LY <span style="opacity:.5">· v1.5</span>';
     console.info('[catalog] Loaded '+stars.length+' stars from local cache');
 
   }catch(e){
     // Show a clear, permanent message so the user knows exactly what happened
     const msg=e.message||String(e);
-    $('ds').innerHTML='⚠ CATALOG ERROR: '+msg+' — run: sudo bash update-catalog.sh <span style="opacity:.5">· v1.4</span>';
+    $('ds').innerHTML='⚠ CATALOG ERROR: '+msg+' — run: sudo bash update-catalog.sh <span style="opacity:.5">· v1.5</span>';
     $('ds').style.color='#cc6600';
     $('ds').style.fontWeight='bold';
     $('ds').title=msg; // full message on hover
