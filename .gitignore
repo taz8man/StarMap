@@ -1,13 +1,14 @@
-# User worldbuilding data — never commit to GitHub
-data/
-static/data/maps/*.jpg
-static/data/maps/*.png
-static/data/maps/*.webp
-static/data/maps/*.jpeg
+# User worldbuilding database — never commit to GitHub
+data/world.db
+data/*.db
 
-# Keep the bundled sol textures
-!static/data/maps/sol/
-!static/data/maps/sol/*.jpg
+# User-uploaded custom planet/moon surface maps
+static/data/maps/planet_*.jpg
+static/data/maps/planet_*.png
+static/data/maps/planet_*.webp
+static/data/maps/moon_*.jpg
+static/data/maps/moon_*.png
+static/data/maps/moon_*.webp
 
 # Python
 __pycache__/
