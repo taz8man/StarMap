@@ -1,0 +1,19 @@
+# User worldbuilding data — never commit to GitHub
+data/
+static/data/maps/*.jpg
+static/data/maps/*.png
+static/data/maps/*.webp
+static/data/maps/*.jpeg
+
+# Keep the bundled sol textures
+!static/data/maps/sol/
+!static/data/maps/sol/*.jpg
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
